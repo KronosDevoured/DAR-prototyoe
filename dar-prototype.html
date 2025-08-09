@@ -3,9 +3,9 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-<title>dar-prototype — GitHub Pages</title>
+<title>dar-prototype — Android</title>
 <style>
-  html,body{margin:0;padding:0;background:#0e0f12;color:#e8e8ea;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;height:100%;overscroll-behavior:none}
+  html,body{margin:0;padding:0;background:#0e0f12;color:#e8e8ea;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;height:100%}
   canvas{position:fixed;inset:0;z-index:0;touch-action:none}
   #ui{position:fixed;inset:auto 0 0 0;display:flex;gap:.5rem;align-items:center;padding:.6rem .8rem;background:linear-gradient(180deg,rgba(14,15,18,0),rgba(14,15,18,.7) 30%,rgba(14,15,18,.9));backdrop-filter:blur(6px);z-index:10;pointer-events:auto;flex-wrap:wrap}
   .btn{border:1px solid #3a3d45;padding:.45rem .7rem;border-radius:999px;background:#181a20;color:#e8e8ea;font-weight:600;letter-spacing:.2px}
@@ -27,7 +27,7 @@
   #spinControls,#l1Diff{display:none;align-items:center;gap:.5rem}
   input[type=range]{accent-color:#4c8dff}
 
-  /* pointer-events:auto so tapping the backdrop can close Hint */
+  /* pointer-events:auto so tap outside card can close the hint */
   #goalPanel{position:fixed;top:0;left:0;right:0;z-index:20;pointer-events:auto;display:flex;justify-content:center;padding:.75rem}
   #goalCard{pointer-events:auto;max-width:680px;width:calc(100% - 1.2rem);background:rgba(24,26,32,.92);border:1px solid #3a3d45;border-radius:14px;padding:.8rem 1rem;box-shadow:0 8px 24px rgba(0,0,0,.35)}
   #goalCard h3{margin:.1rem 0 .35rem 0;font-size:1rem}
@@ -41,15 +41,6 @@
   #l1SpinSlider{position:absolute;left:0;top:22px;-webkit-appearance:slider-vertical;writing-mode:bt-lr;width:30px;height:220px;margin:0;background:transparent}
 
   #level2hud,#level3hud{align-items:center;gap:.5rem}
-
-  /* Joy hint bubble */
-  #joyHint{
-    position:fixed; z-index:13; pointer-events:none;
-    background:rgba(24,26,32,.92); border:1px solid #3a3d45; color:#cfd3dc;
-    padding:.35rem .55rem; border-radius:10px; font-size:.85rem; white-space:nowrap;
-    transform:translate(-50%,-50%); opacity:0; transition:opacity .25s ease;
-  }
-  #joyHint.show{opacity:1;}
 </style>
 </head>
 <body>
@@ -64,9 +55,6 @@
       <div class="actions"><button id="goalClose" class="btn">Got it</button></div>
     </div>
   </div>
-
-  <!-- Joy reposition hint -->
-  <div id="joyHint">Hold anywhere to reposition the stick</div>
 
   <!-- L1 spin slider (vertical, flush left) -->
   <div id="l1SpinContainer">
@@ -146,7 +134,6 @@
   const STICK_TAU_MS=38,ARROW_TAU_MS=55,STICK_MIN_MAG=8;
   const COL_UP='#ff5c5c',COL_RIGHT='#4c8dff',COL_DOWN='#53d769',COL_LEFT='#ffd166';
   const GOAL_MS = 3000; // auto-hide delay for auto-shown hints (ms)
-  const JOY_HINT_MS = 4500;
 
   // Level tuning
   let L1_TOL_DEG=10,L1_TARGET_RADIUS=22,HOLD_TO_ARC_MS=100;
@@ -164,9 +151,6 @@
   let l2StartMs=0,l2TargetAngle=0,l2TargetR=260,l2HoldMs=0,l2ArrowActive=false;
   let l3Pos,l3Goal,l3Obstacles=[],l3Lives=L3_LIVES_START,l3Dist=0,l3ArrowActive=false,l3Vel=null;
 
-  // Hint state
-  let joyHintUntil=0;
-
   // Setting: invert Up/Down mapping
   let invertUD=false;
 
@@ -174,9 +158,9 @@
   function setup(){
     createCanvas(window.innerWidth,window.innerHeight);
     center=createVector(width/2,height/2);
-    JOY_CENTER=createVector(110,Math.max(140,height-170));
+    JOY_CENTER=createVector(110,Math.max(140,height-170)); // off the bottom UI
 
-    // Hamburger toggles chrome (sliders included)
+    // Hamburger toggles all chrome incl. sliders
     const menuBtn=document.getElementById('menuBtn'); let chromeShown=true;
     function setChromeShown(show){
       menuBtn.classList.toggle('active',!show);
@@ -190,8 +174,9 @@
     // Buttons
     bind('level1',()=>setLevel(1)); bind('level2',()=>setLevel(2)); bind('level3',()=>setLevel(3));
     bind('rollL',()=>setRoll(-1));  bind('rollR',()=>setRoll(+1));
-    bind('clear',()=>{ /* no-op visual trails placeholder */ });
+    bind('clear',()=>{ /* no-op visual trails */ });
     bind('restart',()=>restart());
+    // (no 'help' binding anymore — we use the hint toggle below)
 
     const swapBtn=document.getElementById('swapUD');
     swapBtn.addEventListener('click',e=>{
@@ -236,20 +221,16 @@
       apply(parseFloat(slider.value)||0);
     })();
 
-    // Canvas-level joystick (pointer capture + long-press relocate, now drag-to-reposition)
+    // Canvas-level joystick (pointer capture + long-press relocate)
     attachCanvasJoystickHandlers();
 
     window.addEventListener('resize',windowResized);
 
     setRoll(+1); setLevel(1); restart(); showGoal(); // auto hint on start
-    showJoyHint(JOY_HINT_MS); // show the reposition hint initially
 
-    // draw loop with visibility pause (saves CPU on Pages when tab hidden)
+    // draw loop
     lastFrameT=millis();
-    function frame(){ if(document.hidden){ lastFrameT=millis(); requestAnimationFrame(frame); return; }
-      const t=millis(); const dt=Math.max(1,t-lastFrameT); lastFrameT=t; draw(dt); requestAnimationFrame(frame);
-    }
-    requestAnimationFrame(frame);
+    (function loop(){const t=millis();const dt=Math.max(1,t-lastFrameT);lastFrameT=t;draw(dt);requestAnimationFrame(loop);})();
   }
 
   function windowResized(){
@@ -259,7 +240,6 @@
     if(level===1 && target){const fit=fitTargetAtAngle(target.angle,TARGET_DIST,L1_TARGET_RADIUS+8);target.x=fit.x;target.y=fit.y;}
     if(level===2){const fit=fitTargetAtAngle(l2TargetAngle,l2TargetR,24);l2TargetR=fit.r;}
     if(level===3){clampCourseForScreen();}
-    positionJoyHint(); // keep hint near stick
   }
 
   function bind(id,fn){const el=document.getElementById(id); el.addEventListener('click',e=>{e.stopPropagation();fn();}); el.addEventListener('pointerdown',e=>{e.stopPropagation();fn();}); return el;}
@@ -278,9 +258,7 @@
     const spinRange=document.getElementById('spinRange'),spinValue=document.getElementById('spinValue'),spinLabelPrefix=document.getElementById('spinLabelPrefix');
     if(spinRange&&spinValue){const val=(n===2?L2_SPIN_PERIOD_MS:L3_SPIN_PERIOD_MS)/1000; spinRange.value=val.toFixed(2); spinValue.textContent=val.toFixed(2)+' s/rot'; spinLabelPrefix.textContent=(n===2?'L2 Spin':'L3 Spin');}
     updateTempoTag(); restart(); showGoal(); // auto hint on level change
-    showJoyHint(JOY_HINT_MS * 0.75); // brief re-show on level swap
   }
-
   function setRoll(dir){airRoll=dir; document.getElementById('rollL').classList.toggle('active',dir<0); document.getElementById('rollR').classList.toggle('active',dir>0);}
   function updateTempoTag(){const tempo=document.getElementById('tempoTag'); if(!tempo) return; const s=(level===2?L2_SPIN_PERIOD_MS:L3_SPIN_PERIOD_MS)/1000; tempo.textContent=`Tempo ${s.toFixed(2)} s/rot`; }
 
@@ -325,24 +303,6 @@
   document.getElementById('goalClose').addEventListener('click',(e)=>{e.stopPropagation();hideGoal();});
   document.getElementById('goalPanel').addEventListener('click',(e)=>{ if(e.target.id==='goalPanel') hideGoal(); });
   document.getElementById('hintBtn').addEventListener('click',(e)=>{e.stopPropagation();toggleGoal();});
-
-  /* ===== Joy reposition hint helpers ===== */
-  function showJoyHint(ms){
-    const el=document.getElementById('joyHint');
-    joyHintUntil=millis()+ms;
-    el.classList.add('show');
-    positionJoyHint();
-  }
-  function maybeHideJoyHint(){
-    const el=document.getElementById('joyHint');
-    if(millis()>joyHintUntil) el.classList.remove('show');
-  }
-  function positionJoyHint(){
-    const el=document.getElementById('joyHint');
-    const x=JOY_CENTER.x + (JOY_BASE_R+18);
-    const y=JOY_CENTER.y - (JOY_BASE_R+18);
-    el.style.left=x+'px'; el.style.top=y+'px';
-  }
 
   function updateScore(msg){
     const el=document.getElementById('score'); if(el) el.textContent=`Score ${scoreHits} / ${scoreTotal}`;
@@ -424,29 +384,21 @@
     return createVector(dx,dy);
   }
   function attachCanvasJoystickHandlers(){
-    let activeId=null, pressT=0, startX=0, startY=0;
+    let activeId=null, pressT=0;
     canvas.addEventListener('pointerdown',e=>{
-      pressT=performance.now(); startX=e.clientX; startY=e.clientY;
+      pressT=performance.now();
       if(inJoyLoose(e.clientX,e.clientY)){
         try{e.target.setPointerCapture(e.pointerId);}catch(_){}
         activeId=e.pointerId; joyActive=true; joyVec=vecFromJoyPx(e.clientX,e.clientY);
       }else{
-        activeId=e.pointerId; relocating=true; // start relocating immediately if you press outside
-        JOY_CENTER=createVector(e.clientX,e.clientY);
-        positionJoyHint();
+        activeId=e.pointerId; relocating=true;
       }
       e.preventDefault();
     },{passive:false});
     canvas.addEventListener('pointermove',e=>{
       if(activeId!==e.pointerId) return;
-      const heldLong = (performance.now()-pressT)>=JOY_LONGPRESS_MS;
-      if(!relocating && joyActive && heldLong){
-        // convert current interaction into relocation (long-press anywhere)
-        relocating=true; joyActive=false; joyVec=null;
-      }
       if(relocating){
-        JOY_CENTER=createVector(e.clientX,e.clientY); // live drag-follow
-        positionJoyHint();
+        if(performance.now()-pressT>=JOY_LONGPRESS_MS){ JOY_CENTER=createVector(e.clientX,e.clientY); relocating=false; }
       }else if(joyActive){
         joyVec=vecFromJoyPx(e.clientX,e.clientY);
       }
@@ -464,7 +416,6 @@
 
   /* =================== Rendering =================== */
   function drawGrid(){stroke('#282a30');strokeWeight(1);for(let x=0;x<width;x+=40)line(x,0,x,height);for(let y=0;y<height;y+=40)line(0,y,width,y);}
-
   function drawSquareColored(pos,angle){
     push();translate(pos.x,pos.y);rotate(angle);noFill();strokeWeight(4);
     stroke(COL_UP);   line(-SQUARE_HALF,-SQUARE_HALF, SQUARE_HALF,-SQUARE_HALF);      // top (red)
@@ -474,29 +425,19 @@
     stroke('#53d769');strokeWeight(4); line(0,0,0,SQUARE_HALF+16);                    // position indicator (green side)
     pop();
   }
-
   function drawArrowWorld(origin,angle,color){
     const ax=origin.x+Math.cos(angle)*ARROW_LEN, ay=origin.y+Math.sin(angle)*ARROW_LEN;
     stroke(color);strokeWeight(6);line(origin.x,origin.y,ax,ay);
     push();translate(ax,ay);rotate(angle);fill(color);noStroke();
     ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(-14,-8);ctx.lineTo(-14,8);ctx.closePath();ctx.fill();pop();
   }
-
   function drawJoystick(){
     const cx=JOY_CENTER.x,cy=JOY_CENTER.y,r=JOY_BASE_R;
-    // pulsating halo
-    const t=millis(); const pulse = 1 + 0.06*Math.sin(t*0.008);
-    const haloR = r * pulse + 6;
-    noFill(); strokeWeight(6); stroke(`rgba(76,141,255,0.20)`); circle(cx,cy,haloR*2);
-
-    // ring quadrants
     noFill();strokeWeight(10);
     stroke(COL_RIGHT);arc(cx,cy,r*2,r*2,radians(-45),radians(45));    // right (blue)
     stroke(COL_UP);   arc(cx,cy,r*2,r*2,radians(45),radians(135));    // up (red)
     stroke(COL_LEFT); arc(cx,cy,r*2,r*2,radians(135),radians(225));   // left (yellow)
     stroke(COL_DOWN); arc(cx,cy,r*2,r*2,radians(225),radians(315));   // down (green)
-
-    // inner guides + knob
     noFill();stroke('#2d2d2d');strokeWeight(2);circle(cx,cy,(r-22)*2);
     stroke('#373737');line(cx-r+10,cy,cx+r-10,cy);line(cx,cy-r+10,cx,cy+r-10);
     const knob=joyVec?Vector.add(JOY_CENTER,joyVec):JOY_CENTER.copy();
@@ -519,16 +460,15 @@
     background('#0e0f12'); drawGrid();
     if(level===1) runLevel1(dt); else if(level===2) runLevel2(dt); else runLevel3(dt);
     drawJoystick();
-
-    // manage hint fade
-    maybeHideJoyHint();
   }
 
   function runLevel1(dt){
     const spin=l1CurrentSpinAngle();
     drawSquareColored(center,spin);
 
+    // target & helper line
     if(target){noStroke();fill('#ffd166');circle(target.x,target.y,L1_TARGET_RADIUS*2);stroke('#5a5a5a');strokeWeight(2);line(center.x,center.y,target.x,target.y);}
+    // arrow only while touching (initial flick visualization)
     if(joyActive&&joyVec){
       const raw=Math.atan2( (invertUD ? smJoy.y : -smJoy.y), smJoy.x);
       const thWorld=spin+mirrorY(raw);
@@ -543,6 +483,7 @@
     const mag=Math.hypot(smJoy.x,smJoy.y), active=mag>STICK_MIN_MAG;
     drawSquareColored(center,spin);
 
+    // target
     const tx=center.x+Math.cos(l2TargetAngle)*l2TargetR, ty=center.y+Math.sin(l2TargetAngle)*l2TargetR;
     noStroke();fill('#ffd166');circle(tx,ty,40);
 
@@ -627,959 +568,6 @@
 
   /* =================== Boot =================== */
   setup();
-  </script>
-</body>
-</html>    #goalPanel {
-      position:fixed; top:0; left:0; right:0; z-index:20; pointer-events:none;
-      display:flex; justify-content:center; padding:.75rem;
-    }
-    #goalCard {
-      pointer-events:auto; max-width:680px; width:calc(100% - 1.2rem);
-      background:rgba(24,26,32,.92); border:1px solid #3a3d45; border-radius:14px; padding:.8rem 1rem;
-      box-shadow:0 8px 24px rgba(0,0,0,.35);
-    }
-    #goalCard h3 { margin:.1rem 0 .35rem 0; font-size:1rem; }
-    #goalCard p  { margin:0; line-height:1.35; opacity:.92; }
-    #goalCard .actions { display:flex; gap:.5rem; margin-top:.6rem; }
-    #goalCard .actions .btn { padding:.35rem .6rem; }
-
-    /* L1 vertical spin slider — flush left; raised a bit so it avoids bottom UI */
-    #l1SpinContainer {
-      position: fixed;
-      left: 0;
-      top: 42%;             /* was 50%; bumped up to avoid overlap */
-      transform: translateY(-50%);
-      z-index: 12;
-      display: none;        /* Level 1 only */
-      flex-direction: column;
-      align-items: flex-start;
-      gap: 6px;
-      pointer-events: auto;
-    }
-    #l1SpinLabel {
-      font: 600 13px system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
-      color: #e8e8ea;
-      background: #181a20;
-      border: 1px solid #3a3d45;
-      border-radius: 999px;
-      padding: 2px 8px;
-      white-space: nowrap;
-      margin-left: 4px;
-    }
-    #l1SpinSlider {
-      position: absolute;
-      left: 0;     /* hug the edge */
-      top: 22px;   /* sits under label */
-      -webkit-appearance: slider-vertical;
-      writing-mode: bt-lr;
-      width: 30px;
-      height: 220px;
-      margin: 0;
-      background: transparent;
-    }
-  </style>
-  <script src="https://cdn.jsdelivr.net/npm/p5@1.9.0/lib/p5.min.js"></script>
-</head>
-<body>
-  <!-- Hamburger -->
-  <button id="menuBtn" class="hamburger" type="button" aria-label="Toggle UI" title="Toggle UI">
-    <span class="bar"></span><span class="bar"></span><span class="bar"></span>
-  </button>
-
-  <!-- Goal / Help Panel -->
-  <div id="goalPanel" class="hidden">
-    <div id="goalCard">
-      <h3 id="goalTitle">Level Goal</h3>
-      <p id="goalText">…</p>
-      <div class="actions">
-        <button id="goalClose" class="btn">Got it</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Level 1 spin slider — edge-hugging left -->
-  <div id="l1SpinContainer">
-    <div id="l1SpinLabel">Spin: 0 (stationary)</div>
-    <!-- 0 = stop, 1 = fastest (0.5 s/rot). Mapping 3.0 → 0.5 linearly. -->
-    <input id="l1SpinSlider" type="range" min="0" max="1" step="0.01" value="0" />
-  </div>
-
-  <!-- Level 1 HUD -->
-  <div id="scoreHud">
-    <div id="score" class="tag">Score 0 / 0</div>
-    <div id="result" class="tag" style="display:none;"></div>
-  </div>
-
-  <!-- HUD (toggles with hamburger) -->
-  <div id="hud">
-    <div id="level2hud" style="display:none; align-items:center; gap:.5rem;">
-      <span class="tag" id="tempoTag">Tempo 1.15 s/rot</span>
-      <div class="tag" id="aimTag">Aim 0°</div>
-    </div>
-    <div id="level3hud" style="display:none; align-items:center; gap:.5rem;">
-      <span class="tag" id="speedTag">Speed 0 px/s</span>
-      <span class="tag" id="distTag">Dist 0 m</span>
-      <span class="tag" id="livesTag">Lives 3</span>
-    </div>
-  </div>
-
-  <!-- Bottom controls -->
-  <div id="ui">
-    <div class="row" style="gap:.5rem;">
-      <button id="level1" class="btn active" type="button">Level 1</button>
-      <button id="level2" class="btn" type="button">Level 2</button>
-      <button id="level3" class="btn" type="button">Level 3</button>
-
-      <!-- labels already swapped to match behavior -->
-      <button id="rollL" class="btn" type="button">Air Roll Right</button>
-      <button id="rollR" class="btn active" type="button">Air Roll Left</button>
-
-      <button id="clear" class="btn" type="button">Clear Trails</button>
-      <button id="restart" class="btn" type="button">Restart</button>
-      <button id="help" class="btn" type="button">Help</button>
-      <div class="grow"></div>
-
-      <!-- Level 1 Difficulty -->
-      <div id="l1Diff">
-        <label for="diffRange" class="tag">L1 Difficulty</label>
-        <input id="diffRange" type="range" min="1" max="5" step="1" value="3" />
-        <span class="tag" id="diffTag">Tol 10° • Radius 22 • Window 100ms</span>
-      </div>
-
-      <!-- Spin Controls for L2 & L3 -->
-      <div id="spinControls">
-        <label for="spinRange"><span id="spinLabelPrefix">L2 Spin</span> (s/rot, min=1.15):</label>
-        <input id="spinRange" type="range" min="1.15" max="3.00" step="0.05" value="1.15" />
-        <span class="tag" id="spinValue">1.15 s/rot</span>
-      </div>
-
-      <span class="tag" style="opacity:.85">Tip: long-press (~1.2s) anywhere to reposition the joystick.</span>
-    </div>
-  </div>
-
-  <script>
-    /* ===== Config ===== */
-    const SQUARE_HALF=24, CLEARANCE=4, ARROW_LEN=110, FPS=60;
-    const JOY_BASE_R=88, JOY_KNOB_R=28, JOY_DEADZONE=6, JOY_LONGPRESS_MS=1200;
-    const STICK_TAU_MS = 38, ARROW_TAU_MS = 55, STICK_MIN_MAG = 8;
-
-    // Colors
-    const COL_UP   = '#ff5c5c'; // top (red)
-    const COL_RIGHT= '#4c8dff'; // right (blue)
-    const COL_DOWN = '#53d769'; // bottom (green)
-    const COL_LEFT = '#ffd166'; // left (yellow)
-
-    // Level 1 difficulty-mapped values
-    let L1_TOL_DEG = 10;
-    let L1_TARGET_RADIUS = 22;
-    let HOLD_TO_ARC_MS = 100;
-
-    // Level 1 cosmetic spin period (ms). 0 = no spin (default).
-    let L1_SPIN_PERIOD_MS = 0;
-    let l1StartMs = 0;         // phase start
-    let l1SpinAtPress = 0;     // for locking score angle
-
-    const TARGET_DIST=220, FEEDBACK_MS=600;
-
-    // L2
-    let L2_SPIN_PERIOD_MS=1150;
-    const L2_TOL_DEG=10, L2_HOLD_MS=1500, ROUND_MS=10000;
-
-    // L3 (momentum physics)
-    let L3_SPIN_PERIOD_MS=1150, L3_GOAL_R=32, L3_LIVES_START=3;
-    const L3_OBS_COUNT=5, L3_OBS_R_MIN=26, L3_OBS_R_MAX=48, L3_MARGIN=40, L3_MIN_GAP=140;
-
-    // NEW: physics params
-    let L3_MAX_SPEED = 220;   // px/s cap
-    let L3_ACCEL     = 520;   // px/s^2 when pushing
-    let L3_DAMPING_S = 1.6;   // seconds (higher = longer coast)
-
-    /* ===== State ===== */
-    let airRoll=+1, center, level=1;
-    let JOY_CENTER, activePointerId=null, joyActive=false, joyVec=null, joyPressStart=0, relocating=false;
-    let smJoy = {x:0, y:0};
-    let arrowAngleRender = 0;
-    let lastFrameT, currentSpinAngle = 0;
-
-    // L1
-    let touchPt=null, pointerDownAt=0;
-    let target=null; let scoreHits=0, scoreTotal=0;
-    let l1Locked=false, l1LockedAngle=0;
-
-    // L2
-    let l2StartMs=0, l2TargetAngle=0, l2TargetR=260, l2HoldMs=0, l2ArrowActive=false;
-
-    // L3
-    let l3Pos, l3Goal, l3Obstacles=[], l3Lives=L3_LIVES_START, l3Dist=0, l3ArrowActive=false;
-    let l3Vel=null; // NEW: velocity vector
-
-    /* ===== Setup / Resize ===== */
-    function setup(){
-      const cnv=createCanvas(window.innerWidth, window.innerHeight); frameRate(FPS);
-      center=createVector(width/2, height/2); JOY_CENTER=createVector(110, height-140);
-      cnv.elt.style.touchAction='none';
-
-      const menuBtn=document.getElementById('menuBtn'); let chromeShown=true;
-      function setChromeShown(show){
-        menuBtn.classList.toggle('active', !show);
-        document.getElementById('ui').classList.toggle('hidden', !show);
-        document.getElementById('hud').classList.toggle('hidden', !show);
-        // Also hide/show the L1 edge slider with hamburger
-        const l1spin = document.getElementById('l1SpinContainer');
-        if(l1spin) l1spin.style.display = (show && level===1) ? 'flex' : 'none';
-      }
-      menuBtn.addEventListener('click', (e)=>{
-        e.stopPropagation(); chromeShown=!chromeShown; setChromeShown(chromeShown);
-      });
-
-      // Goal panel controls
-      document.getElementById('help').addEventListener('click', ()=> showGoal(true));
-      document.getElementById('goalClose').addEventListener('click', ()=> hideGoal());
-
-      bind('level1', ()=> setLevel(1));
-      bind('level2', ()=> setLevel(2));
-      bind('level3', ()=> setLevel(3));
-      bind('rollL', ()=> setRoll(-1));
-      bind('rollR', ()=> setRoll(+1));
-      bind('clear', ()=> { touchPt=null; redraw(); });
-      bind('restart', ()=> restart());
-
-      // L2/L3 spin slider
-      const spinRange=document.getElementById('spinRange');
-      const spinValue=document.getElementById('spinValue');
-      const spinLabelPrefix=document.getElementById('spinLabelPrefix');
-      if(spinRange){
-        spinRange.value = "1.15";
-        spinValue.textContent = "1.15 s/rot";
-        spinLabelPrefix.textContent = "L2 Spin";
-        spinRange.addEventListener('input', ()=>{
-          const s = Math.max(1.15, Math.min(3.0, parseFloat(spinRange.value)));
-          if(level===2){ L2_SPIN_PERIOD_MS = s*1000; }
-          else if(level===3){ L3_SPIN_PERIOD_MS = s*1000; }
-          spinValue.textContent = s.toFixed(2) + ' s/rot';
-          updateTempoTag();
-        });
-      }
-
-      // L1 Difficulty slider
-      const diffRange = document.getElementById('diffRange');
-      const diffTag = document.getElementById('diffTag');
-      if(diffRange){
-        const applyDiff = ()=>{
-          const d = parseInt(diffRange.value,10); // 1..5
-          const tol = 14 - (d-1)*2;                 // 14,12,10,8,6
-          const rad = 28 - (d-1)*2.5;               // 28,25.5,23,20.5,18
-          const win = [0,160,130,100,85,70][d];     // ms
-          L1_TOL_DEG = tol;
-          L1_TARGET_RADIUS = Math.round(rad);
-          HOLD_TO_ARC_MS = win;
-          diffTag.textContent = `Tol ${tol}° • Radius ${Math.round(rad)} • Window ${win}ms`;
-          if(level===1 && target){
-            const fit=fitTargetAtAngle(target.angle, TARGET_DIST, L1_TARGET_RADIUS+8);
-            target.x=fit.x; target.y=fit.y;
-          }
-        };
-        diffRange.addEventListener('input', applyDiff);
-        applyDiff();
-      }
-
-      // L1 edge-hugging spin slider (0..1 mapped to 3.0→0.5 s/rot; 0 = stop)
-      (function initL1EdgeSlider(){
-        const slider = document.getElementById('l1SpinSlider');
-        const label  = document.getElementById('l1SpinLabel');
-        if(!slider || !label) return;
-
-        function applyFromSlider(val) {
-          if (val === 0) {
-            label.textContent = 'Spin: 0 (stationary)';
-            L1_SPIN_PERIOD_MS = 0;
-          } else {
-            const secondsPerRotation = 3.0 - (2.5 * val); // 3.0..0.5
-            label.textContent = `Spin: ${secondsPerRotation.toFixed(2)} s/rot`;
-            L1_SPIN_PERIOD_MS = secondsPerRotation * 1000;
-            l1StartMs = millis(); // reset phase when changing/enabling
-          }
-        }
-        slider.addEventListener('input', ()=> applyFromSlider(parseFloat(slider.value)||0));
-        applyFromSlider(parseFloat(slider.value)||0);
-      })();
-
-      window.addEventListener('pointerdown', onDown, {passive:false});
-      window.addEventListener('pointermove', onMove, {passive:false});
-      window.addEventListener('pointerup', onUp, {passive:false});
-      window.addEventListener('pointercancel', onUp, {passive:false});
-
-      setRoll(+1); setLevel(1); restart(); showGoal();
-    }
-
-    function windowResized(){
-      resizeCanvas(window.innerWidth, window.innerHeight);
-      center=createVector(width/2, height/2);
-      if(!relocating) JOY_CENTER=createVector(110, height-140);
-      if(level===1 && target){ const fit=fitTargetAtAngle(target.angle, TARGET_DIST, L1_TARGET_RADIUS+8); target.x=fit.x; target.y=fit.y; }
-      if(level===2){ const fit=fitTargetAtAngle(l2TargetAngle, l2TargetR, 24); l2TargetR=fit.r; }
-      if(level===3){ clampCourseForScreen(); }
-    }
-
-    /* ===== UI helpers ===== */
-    function bind(id, fn){
-      const el=document.getElementById(id);
-      el.addEventListener('click', e=>{e.stopPropagation(); fn();});
-      el.addEventListener('pointerdown', e=>{e.stopPropagation(); fn();});
-      return el;
-    }
-    function setLevel(n){
-      level=n;
-      document.getElementById('level1').classList.toggle('active', n===1);
-      document.getElementById('level2').classList.toggle('active', n===2);
-      document.getElementById('level3').classList.toggle('active', n===3);
-      document.getElementById('level2hud').style.display=(n===2)?'flex':'none';
-      document.getElementById('level3hud').style.display=(n===3)?'flex':'none';
-      document.getElementById('spinControls').style.display = (n===2 || n===3) ? 'flex' : 'none';
-      document.getElementById('l1Diff').style.display = (n===1) ? 'flex' : 'none';
-
-      // show/hide the edge slider based on level and hamburger state
-      const l1spin = document.getElementById('l1SpinContainer');
-      const menuBtn=document.getElementById('menuBtn');
-      const chromeShown = !menuBtn.classList.contains('active'); // our toggle flips 'active' when hidden
-      if(l1spin) l1spin.style.display = (n===1 && chromeShown) ? 'flex' : 'none';
-
-      const spinRange=document.getElementById('spinRange');
-      const spinValue=document.getElementById('spinValue');
-      const spinLabelPrefix=document.getElementById('spinLabelPrefix');
-      if(spinRange && spinValue){
-        const val = (n===2 ? L2_SPIN_PERIOD_MS : L3_SPIN_PERIOD_MS)/1000;
-        spinRange.value = val.toFixed(2);
-        spinValue.textContent = val.toFixed(2) + ' s/rot';
-        spinLabelPrefix.textContent = (n===2 ? 'L2 Spin' : 'L3 Spin');
-      }
-      updateTempoTag();
-      restart();
-      showGoal();
-    }
-    function setRoll(dir){
-      airRoll=dir;
-      document.getElementById('rollL').classList.toggle('active', dir<0);
-      document.getElementById('rollR').classList.toggle('active', dir>0);
-    }
-    function updateTempoTag(){
-      const tempo=document.getElementById('tempoTag'); if(!tempo) return;
-      const s = (level===2 ? L2_SPIN_PERIOD_MS : L3_SPIN_PERIOD_MS)/1000;
-      tempo.textContent = `Tempo ${s.toFixed(2)} s/rot`;
-    }
-
-    /* ===== Goal panel logic ===== */
-    function goalTextFor(lv){
-      if(lv===1){
-        return {
-          title: 'Level 1 — Quick Aim',
-          text: 'A target spawns around the square. Flick the joystick toward it quickly and accurately. Only your initial flick counts; holding too long is a miss. Difficulty adjusts tolerance, target size, and how long that initial input window lasts.'
-        };
-      } else if(lv===2){
-        return {
-          title: 'Level 2 — Match the Spin',
-          text: 'The square spins. Use the joystick to aim your arrow at the yellow target. Hold on target long enough to lock it. The spin changes your aim — counter the rotation.'
-        };
-      }
-      return {
-        title: 'Level 3 — Navigate the Course',
-        text: 'Push the joystick to set a heading relative to the spinning square. Avoid obstacles and reach the green goal before you run out of lives.'
-      };
-    }
-    let goalHideTimer=null;
-    function showGoal(force=false){
-      const panel=document.getElementById('goalPanel');
-      const {title,text}=goalTextFor(level);
-      document.getElementById('goalTitle').textContent=title;
-      document.getElementById('goalText').textContent=text;
-      panel.classList.remove('hidden');
-      if(goalHideTimer) clearTimeout(goalHideTimer);
-      if(!force){ goalHideTimer=setTimeout(()=>{ panel.addEventListener('transitionend',()=>{}, {once:true}); panel.classList.add('hidden'); }, 3500); }
-    }
-    function hideGoal(){
-      const panel=document.getElementById('goalPanel');
-      panel.classList.add('hidden');
-      if(goalHideTimer) clearTimeout(goalHideTimer);
-    }
-
-    /* ===== Math/helpers ===== */
-    function updateScore(msg){
-      const el=document.getElementById('score'); if(el) el.textContent=`Score ${scoreHits} / ${scoreTotal}`;
-      const r=document.getElementById('result'); if(!r) return;
-      if(!msg){ r.style.display='none'; return; }
-      r.textContent=msg.text; r.style.display='inline-block'; r.className='tag ' + (msg.good?'good':'bad');
-    }
-    function smallestAngleDiff(a,b){ let d=a-b; while(d>Math.PI) d-=2*Math.PI; while(d<-Math.PI) d+=2*Math.PI; return d; }
-    function squareEdgePoint(c,dir){ const d=createVector(Math.cos(dir),Math.sin(dir)); const tx=(SQUARE_HALF+CLEARANCE)/Math.abs(d.x||1e-6); const ty=(SQUARE_HALF+CLEARANCE)/Math.abs(d.y||1e-6); const t=Math.min(tx,ty); return createVector(c.x+d.x*t, c.y+d.y*t); }
-    function emaAlpha(dt, tau){ return 1 - Math.exp(-dt / Math.max(1, tau)); }
-    function angleLerp(current, target, alpha){ let d = target - current; while(d > Math.PI) d -= 2*Math.PI; while(d < -Math.PI) d += 2*Math.PI; return current + d * alpha; }
-    function normPi(a){ while(a>Math.PI) a-=2*Math.PI; while(a<-Math.PI) a+=2*Math.PI; return a; }
-    function mirrorY(a){ return Math.PI - a; }
-
-    function fitTargetAtAngle(angle, desiredR, margin){
-      const cx=center.x, cy=center.y; const c=Math.cos(angle), s=Math.sin(angle); const candidates=[];
-      if(Math.abs(c)>1e-6){ const rLeft=(margin-cx)/c; const rRight=(width-margin-cx)/c; if(rLeft>0) candidates.push(rLeft); if(rRight>0) candidates.push(rRight); }
-      if(Math.abs(s)>1e-6){ const rTop=(margin-cy)/s; const rBot=(height-margin-cy)/s; if(rTop>0) candidates.push(rTop); if(rBot>0) candidates.push(rBot); }
-      const valid=candidates.filter(Number.isFinite); const maxR=valid.length?Math.min(...valid):desiredR;
-      const rUsed=Math.max(0, Math.min(desiredR, maxR));
-      return { r:rUsed, x: cx+rUsed*c, y: cy+rUsed*s };
-    }
-    function spawnTarget(){
-      const angle=Math.random()*Math.PI*2 - Math.PI;
-      const fit=fitTargetAtAngle(angle, TARGET_DIST, L1_TARGET_RADIUS+8);
-      target={ angle, x: fit.x, y: fit.y };
-    }
-
-    /* ===== Restart ===== */
-    function restart(){
-      touchPt=null; joyActive=false; joyVec=null; activePointerId=null;
-      smJoy.x=0; smJoy.y=0; arrowAngleRender=0; lastFrameT=undefined;
-      l1Locked=false; l2ArrowActive=false; l3ArrowActive=false;
-
-      const res=document.getElementById('result'); if(res) res.style.display='none';
-
-      if(level===1){
-        // Reset scoring & target
-        scoreHits=0; scoreTotal=0; updateScore(); spawnTarget();
-        // Reset orientation (puts square back to its “starting position”)
-        l1StartMs = millis();               // phase = 0 now
-        // Also clear any “press angle” lock
-        l1SpinAtPress = 0;
-      } else if(level===2){
-        l2StartMs=millis(); l2HoldMs=0;
-        l2TargetAngle=random(-Math.PI, Math.PI); const fit=fitTargetAtAngle(l2TargetAngle, 260, 24); l2TargetR=fit.r;
-        document.getElementById('aimTag').textContent='Aim 0°';
-      } else {
-        l3Dist=0; l3Lives=L3_LIVES_START;
-        l3Pos=createVector(width*0.5, height*0.75);
-        l3Vel=createVector(0,0); // start stopped
-        generateCourse(); updateL3Hud();
-      }
-    }
-
-    /* ===== L3 helpers ===== */
-    function randRange(a,b){ return a + Math.random()*(b-a); }
-    function farEnough(x,y, list, r){ for(const it of list){ const gap = dist(x,y, it.x, it.y) - (r + it.r); if (gap < L3_MIN_GAP) return false; } return true; }
-    function generateCourse(){
-      l3Goal = { x: width*0.5, y: L3_MARGIN + 70, r: L3_GOAL_R };
-      l3Obstacles = [];
-      let tries=0; while(l3Obstacles.length < L3_OBS_COUNT && tries < 1200){
-        tries++;
-        const r = randRange(L3_OBS_R_MIN, L3_OBS_R_MAX);
-        const x = randRange(L3_MARGIN + r, width - L3_MARGIN - r);
-        const y = randRange(L3_MARGIN + r + 40, height - L3_MARGIN - r - 120);
-        if (dist(x,y, l3Pos.x,l3Pos.y) < (r + 160)) continue;
-        if (dist(x,y, l3Goal.x,l3Goal.y) < (r + 160)) continue;
-        if (!farEnough(x,y, l3Obstacles, r)) continue;
-        l3Obstacles.push({x,y,r});
-      }
-      clampCourseForScreen();
-    }
-    function clampCourseForScreen(){
-      for(const o of l3Obstacles){ o.x=Math.max(L3_MARGIN+o.r, Math.min(width-L3_MARGIN-o.r, o.x)); o.y=Math.max(L3_MARGIN+o.r, Math.min(height-L3_MARGIN-o.r, o.y)); }
-      l3Goal.x=Math.max(L3_MARGIN+l3Goal.r, Math.min(width-L3_MARGIN-l3Goal.r, l3Goal.x));
-      l3Goal.y=Math.max(L3_MARGIN+l3Goal.r, Math.min(height-L3_MARGIN-l3Goal.r, l3Goal.y));
-      if(l3Pos){ l3Pos.x=Math.max(SQUARE_HALF+4, Math.min(width-(SQUARE_HALF+4), l3Pos.x)); l3Pos.y=Math.max(SQUARE_HALF+4, Math.min(height-(SQUARE_HALF+4), l3Pos.y)); }
-    }
-    function updateL3Hud(){
-      const sp=document.getElementById('speedTag'); if(sp){
-        const cur = (l3Vel ? l3Vel.mag() : 0);
-        sp.textContent = `Speed ${cur.toFixed(0)} px/s`;
-      }
-      const dt=document.getElementById('distTag'); if(dt) dt.textContent=`Dist ${(l3Dist/100).toFixed(1)} m`;
-      const lv=document.getElementById('livesTag'); if(lv) lv.textContent=`Lives ${l3Lives}`;
-    }
-
-    /* ===== Input ===== */
-    function elementIsUI(x,y){ const el=document.elementFromPoint(x,y); if(!el || !el.closest) return false; return !!(el.closest('#ui') || el.closest('#menuBtn')); }
-    function inJoy(x,y){ const dx=x-JOY_CENTER.x, dy=y-JOY_CENTER.y; return (dx*dx+dy*dy)<=JOY_BASE_R*JOY_BASE_R; }
-    function vecFromJoy(x,y){ const dx=x-JOY_CENTER.x, dy=y-JOY_CENTER.y; const v=createVector(dx,dy); if(v.mag()>JOY_BASE_R) v.setMag(JOY_BASE_R); return v; }
-
-    function l1CurrentSpinAngle(){
-      if(L1_SPIN_PERIOD_MS<=0) return 0;
-      const dir = (airRoll>0)? +1 : -1;
-      return dir * ( (millis() - l1StartMs) * (2*Math.PI / L1_SPIN_PERIOD_MS) );
-    }
-
-    function onDown(e){
-      if(elementIsUI(e.clientX,e.clientY)) return;
-      activePointerId=e.pointerId; joyPressStart=performance.now();
-      if(inJoy(e.clientX,e.clientY)){
-        joyActive=true; joyVec=vecFromJoy(e.clientX,e.clientY);
-        const v=joyVec.copy();
-        if(v.mag()>=JOY_DEADZONE){
-          if(level===1){
-            l1SpinAtPress = l1CurrentSpinAngle();
-            const raw = Math.atan2(-v.y, v.x);
-            const thStick = mirrorY(raw);
-            const thWorld = l1SpinAtPress + thStick;
-            l1Locked=true;
-            l1LockedAngle = thWorld;
-            touchPt = squareEdgePoint(center, thWorld);
-            pointerDownAt = millis();
-          } else {
-            const basePos=(level===3?l3Pos:center);
-            const raw = Math.atan2(-v.y, v.x);
-            const thStick = mirrorY(raw);
-            const thWorld = currentSpinAngle + thStick;
-            touchPt=squareEdgePoint(basePos, thWorld);
-            pointerDownAt=millis();
-          }
-        }
-      } else { relocating=true; }
-      e.preventDefault();
-    }
-
-    function onMove(e){
-      if(activePointerId!==e.pointerId) return;
-      const now=performance.now();
-      if(relocating){ if(now-joyPressStart>=JOY_LONGPRESS_MS){ JOY_CENTER=createVector(e.clientX,e.clientY);} return; }
-      if(!joyActive) return;
-      joyVec=vecFromJoy(e.clientX,e.clientY);
-      e.preventDefault();
-    }
-
-    function onUp(e){
-      if(activePointerId!==e.pointerId) return;
-      relocating=false;
-
-      if(level===1){
-        const heldMs=millis()-pointerDownAt; scoreTotal++;
-        const usedAngle = l1Locked ? l1LockedAngle : null;
-        if(heldMs>HOLD_TO_ARC_MS){
-          updateScore({text:`Miss: held too long (${heldMs}ms > ${HOLD_TO_ARC_MS}ms)`, good:false});
-        } else if(usedAngle==null){
-          updateScore({text:`Miss: no flick`, good:false});
-        } else {
-          const delta=smallestAngleDiff(usedAngle,target.angle);
-          const ok=Math.abs(degrees(delta))<=L1_TOL_DEG; if(ok) scoreHits++;
-          updateScore({text: ok?`Hit: ${Math.round(Math.abs(degrees(delta)))}°`:`Miss: ${Math.round(Math.abs(degrees(delta)))}°`, good:ok});
-        }
-        setTimeout(()=>{ updateScore(); spawnTarget(); }, FEEDBACK_MS);
-      }
-
-      l1Locked=false;
-      joyActive=false; joyVec=null; activePointerId=null; e.preventDefault();
-    }
-
-    /* ===== Draw helpers ===== */
-    function drawGrid(){ stroke(40); strokeWeight(1); for(let x=0;x<width;x+=40) line(x,0,x,height); for(let y=0;y<height;y+=40) line(0,y,width,y); }
-
-    function drawSquareColored(pos, spinAngle){
-      push(); translate(pos.x,pos.y); rotate(spinAngle); noFill(); strokeWeight(4);
-      stroke(COL_UP);    line(-SQUARE_HALF, -SQUARE_HALF,  SQUARE_HALF, -SQUARE_HALF); // top
-      stroke(COL_LEFT);  line( SQUARE_HALF, -SQUARE_HALF,  SQUARE_HALF,  SQUARE_HALF); // right (yellow)
-      stroke(COL_DOWN);  line( SQUARE_HALF,  SQUARE_HALF, -SQUARE_HALF,  SQUARE_HALF); // bottom (green)
-      stroke(COL_RIGHT); line(-SQUARE_HALF,  SQUARE_HALF, -SQUARE_HALF, -SQUARE_HALF); // left (blue)
-      stroke('#53d769'); strokeWeight(4); line(0,0,0, SQUARE_HALF+16);  // position indicator
-      pop();
-    }
-
-    function drawArrowWorld(origin, angle, color){
-      const ax=origin.x+Math.cos(angle)*ARROW_LEN, ay=origin.y+Math.sin(angle)*ARROW_LEN;
-      stroke(color); strokeWeight(6); line(origin.x,origin.y,ax,ay);
-      push(); translate(ax,ay); rotate(angle); fill(color); noStroke(); triangle(0,0,-14,-8,-14,8); pop();
-    }
-
-    /* ===== Main draw ===== */
-    function draw(){
-      const t = millis();
-      const dt = (lastFrameT===undefined)? 16 : Math.max(1, t - lastFrameT);
-      lastFrameT = t;
-
-      const stickAlpha = emaAlpha(dt, STICK_TAU_MS);
-      const targetX = (joyVec ? joyVec.x : 0);
-      const targetY = (joyVec ? joyVec.y : 0);
-      smJoy.x += (targetX - smJoy.x) * stickAlpha;
-      smJoy.y += (targetY - smJoy.y) * stickAlpha;
-
-      background('#0e0f12'); drawGrid();
-
-      if(level===1){ runLevel1(dt); }
-      else if(level===2){ runLevel2(dt); }
-      else { runLevel3(dt); }
-
-      drawJoystick();
-    }
-
-    /* ===== Level 1 ===== */
-    function runLevel1(dt){
-      const spinAngle = l1CurrentSpinAngle();
-      drawSquareColored(center, spinAngle);
-
-      if(target){
-        noStroke(); fill('#ffd166'); circle(target.x,target.y,L1_TARGET_RADIUS*2);
-        stroke(90); strokeWeight(2); line(center.x,center.y,target.x,target.y);
-      }
-      fill(230); noStroke(); circle(center.x,center.y,6);
-      if(touchPt){ fill(80,220,100); circle(touchPt.x,touchPt.y,8); }
-
-      if(joyActive && joyVec){
-        const raw = Math.atan2(-joyVec.y, joyVec.x);
-        const thStick = mirrorY(raw);
-        const thWorld = spinAngle + thStick;
-        const col = arrowColorFor(thWorld, spinAngle);
-        drawArrowWorld(center, thWorld, col);
-      }
-    }
-
-    /* ===== Level 2 ===== */
-    function runLevel2(dt){
-      const t=millis(); const spinDir=(airRoll>0)?+1:-1;
-      const spinOmega=spinDir*(Math.PI*2)/L2_SPIN_PERIOD_MS;
-      const spinAngle=spinOmega*(t-l2StartMs); currentSpinAngle = spinAngle;
-
-      const smMag = Math.hypot(smJoy.x, smJoy.y);
-      const active = smMag>STICK_MIN_MAG;
-
-      drawSquareColored(center, spinAngle);
-
-      const tx = center.x + Math.cos(l2TargetAngle) * l2TargetR;
-      const ty = center.y + Math.sin(l2TargetAngle) * l2TargetR;
-      noStroke(); fill('#ffd166'); circle(tx,ty,40);
-
-      let thRender = null;
-      if(active){
-        const thStick = Math.atan2(-smJoy.y, smJoy.x);
-        const thStickMir = mirrorY(thStick);
-        const thTarget = spinAngle + thStickMir;
-
-        if(!l2ArrowActive){ arrowAngleRender = thTarget; l2ArrowActive = true; }
-        const a = emaAlpha(dt, ARROW_TAU_MS);
-        arrowAngleRender = angleLerp(arrowAngleRender, thTarget, a);
-        thRender = arrowAngleRender;
-
-        const ax=center.x+Math.cos(thRender)*ARROW_LEN, ay=center.y+Math.sin(thRender)*ARROW_LEN;
-        const col = arrowColorFor(thRender, spinAngle);
-        stroke(col); strokeWeight(6); line(center.x,center.y,ax,ay);
-        push(); translate(ax,ay); rotate(thRender); fill(col); noStroke(); triangle(0,0,-14,-8,-14,8); pop();
-      } else {
-        l2HoldMs=0; l2ArrowActive=false;
-      }
-
-      let errDeg=999;
-      if(active){
-        let err = thRender - l2TargetAngle; while(err>Math.PI) err-=2*Math.PI; while(err<-Math.PI) err+=2*Math.PI; errDeg=Math.abs(degrees(err));
-        if(errDeg<=10){ l2HoldMs+=dt; } else { l2HoldMs=0; }
-      }
-      document.getElementById('aimTag').textContent=`Aim ${isFinite(errDeg)?errDeg.toFixed(0):'—'}°`;
-      updateTempoTag();
-
-      if(l2HoldMs>=1500 || (t-l2StartMs>ROUND_MS)){
-        l2StartMs=millis(); l2HoldMs=0;
-        l2TargetAngle=random(-Math.PI,Math.PI); const fit=fitTargetAtAngle(l2TargetAngle,260,24); l2TargetR=fit.r;
-      }
-    }
-
-    /* ===== Level 3 (momentum + damping) ===== */
-    function runLevel3(dt){
-      updateL3Hud();
-
-      // spinning square
-      const t=millis(); const spinDir=(airRoll>0)?+1:-1;
-      const spinOmega=(Math.PI*2)/L3_SPIN_PERIOD_MS * spinDir;
-      const spinAngle=spinOmega*(t- (l2StartMs||t)); currentSpinAngle = spinAngle;
-
-      // heading from stick (as before)
-      let moveHeadingWorld=null;
-      const smMag = Math.hypot(smJoy.x, smJoy.y);
-      if(smMag>STICK_MIN_MAG){
-        const raw = Math.atan2(-smJoy.y, smJoy.x);
-        const thStick = mirrorY(raw);
-        moveHeadingWorld = spinAngle + thStick;
-
-        if(!l3ArrowActive){ arrowAngleRender = moveHeadingWorld; l3ArrowActive = true; }
-        const a = emaAlpha(dt, ARROW_TAU_MS);
-        arrowAngleRender = angleLerp(arrowAngleRender, moveHeadingWorld, a);
-      } else {
-        l3ArrowActive=false;
-      }
-
-      // NEW: physics velocity update
-      if(!l3Vel) l3Vel=createVector(0,0);
-      const dtSec = dt/1000;
-
-      if(moveHeadingWorld!=null){
-        const ax=Math.cos(moveHeadingWorld)*L3_ACCEL;
-        const ay=Math.sin(moveHeadingWorld)*L3_ACCEL;
-        l3Vel.x += ax*dtSec;
-        l3Vel.y += ay*dtSec;
-
-        const speed=l3Vel.mag();
-        if(speed>L3_MAX_SPEED){ l3Vel.mult(L3_MAX_SPEED/speed); }
-      } else {
-        // exponential damping while not pushing
-        const damp = Math.exp(-dtSec / L3_DAMPING_S);
-        l3Vel.mult(damp);
-        if(l3Vel.mag()<3) l3Vel.set(0,0); // kill tiny drift
-      }
-
-      // integrate position
-      l3Pos.x += l3Vel.x * dtSec;
-      l3Pos.y += l3Vel.y * dtSec;
-      l3Dist += l3Vel.mag() * dtSec;
-      clampCourseForScreen();
-
-      // draw course
-      noStroke(); fill('#7bd88f'); circle(l3Goal.x,l3Goal.y,l3Goal.r*2);
-      noFill(); stroke('#ff9472'); strokeWeight(3); for(const o of l3Obstacles){ circle(o.x,o.y,o.r*2); }
-
-      drawSquareColored(l3Pos, spinAngle);
-
-      if(moveHeadingWorld!=null){
-        const thRender = arrowAngleRender;
-        const ax=l3Pos.x+Math.cos(thRender)*ARROW_LEN*0.9, ay=l3Pos.y+Math.sin(thRender)*ARROW_LEN*0.9;
-        const col = arrowColorFor(thRender, spinAngle);
-        stroke(col); strokeWeight(6); line(l3Pos.x,l3Pos.y,ax,ay);
-        push(); translate(ax,ay); rotate(thRender); fill(col); noStroke(); triangle(0,0,-14,-8,-14,8); pop();
-      }
-
-      updateTempoTag();
-
-      for(const o of l3Obstacles){ if (dist(l3Pos.x,l3Pos.y,o.x,o.y) < (SQUARE_HALF+4 + o.r)) { handleL3Crash(); return; } }
-      if (dist(l3Pos.x,l3Pos.y,l3Goal.x,l3Goal.y) < (SQUARE_HALF+4 + l3Goal.r)) { handleL3Win(); return; }
-    }
-    function handleL3Crash(){
-      l3Lives--; updateL3Hud();
-      const r=document.getElementById('result'); if(r){ r.textContent='Crash!'; r.className='tag bad'; r.style.display='inline-block'; }
-      if(l3Lives<=0){ setTimeout(()=>{ restart(); }, 650); }
-      else { setTimeout(()=>{ l3Pos=createVector(width*0.5, height*0.75); l3Vel.set(0,0); const r=document.getElementById('result'); if(r) r.style.display='none'; }, 650); }
-    }
-    function handleL3Win(){
-      const r=document.getElementById('result'); if(r){ r.textContent='Goal!'; r.className='tag good'; r.style.display='inline-block'; }
-      setTimeout(()=>{ restart(); }, 800);
-    }
-
-    /* ===== Joystick ===== */
-    function drawJoystick(){
-      const cx=JOY_CENTER.x, cy=JOY_CENTER.y, r=JOY_BASE_R;
-      noFill(); strokeWeight(10);
-      stroke(COL_RIGHT); arc(cx,cy, r*2, r*2, radians(-45), radians(45));   // right (blue)
-      stroke(COL_UP);    arc(cx,cy, r*2, r*2, radians(45),  radians(135));  // up (red)
-      stroke(COL_LEFT);  arc(cx,cy, r*2, r*2, radians(135), radians(225));  // left (yellow)
-      stroke(COL_DOWN);  arc(cx,cy, r*2, r*2, radians(225), radians(315));  // down (green)
-
-      noFill(); stroke(45); strokeWeight(2); circle(cx,cy,(r-22)*2);
-      const t=millis(); const period=(level===3?L3_SPIN_PERIOD_MS:L2_SPIN_PERIOD_MS);
-      const pulseR=r-8+Math.sin((t%period)/period*2*Math.PI)*4; noFill(); stroke('#4c8dff'); strokeWeight(2); circle(cx,cy,pulseR*2);
-
-      stroke(55); line(cx-r+10,cy,cx+r-10,cy); line(cx,cy-r+10,cx,cy+r-10);
-
-      const knob=joyVec? p5.Vector.add(JOY_CENTER, joyVec) : JOY_CENTER.copy();
-      fill('#1e2127'); stroke('#4c8dff'); strokeWeight(3); circle(knob.x,knob.y,JOY_KNOB_R*2);
-    }
-
-    /* ===== Color helper for arrow vs square edges ===== */
-    function arrowColorFor(thWorld, spinAngle){
-      const rel = normPi(thWorld - spinAngle);
-      if(rel > -Math.PI/4 && rel <= Math.PI/4) return COL_LEFT;   // right (yellow)
-      if(rel >  Math.PI/4 && rel <= 3*Math.PI/4) return COL_DOWN;  // bottom (green)
-      if(rel <= -Math.PI/4 && rel > -3*Math.PI/4) return COL_UP;   // top (red)
-      return COL_RIGHT;                                            // left (blue)
-    }
-    /* === PATCH ZONE START === */
-// Any future changes I send you will be pasted here.
-// These override or extend existing code without touching the main file.
-   /* PATCH: L1 green side faces up on restart & always */
-(function(){
-  // Add a constant orientation offset for Level 1.
-  // Green is the *bottom* edge in local square space, so 180° puts it at the top.
-  const GREEN_UP_OFFSET = Math.PI; // try -Math.PI/2 or +Math.PI/2 if you want a different edge up
-
-  const _l1CurrentSpinAngle = l1CurrentSpinAngle;
-  l1CurrentSpinAngle = function(){
-    return _l1CurrentSpinAngle() + GREEN_UP_OFFSET;
-  };
-})();
-   /* PATCH: L1 speed slider higher (more space above UI) */
-(function(){
-  const c = document.getElementById('l1SpinContainer');
-  if (c) {
-    // Smaller percent = higher on screen. Tweak to taste.
-    c.style.top = '10%';  // was ~42%
-  }
-})();
-   /* PATCH: hide L1 score HUD on L2/L3 to prevent overlap */
-(function(){
-  const _setLevel = setLevel;
-  setLevel = function(n){
-    _setLevel(n);
-    const sh = document.getElementById('scoreHud');
-    if (sh) sh.style.display = (n === 1 ? 'flex' : 'none');
-  };
-
-  // Enforce current state on load
-  const sh = document.getElementById('scoreHud');
-  if (sh) sh.style.display = (typeof level !== 'undefined' && level === 1 ? 'flex' : 'none');
-     /* PATCH: Add 'Swap U/D' button + invert vertical input via mirrorY */
-(function(){
-  // 1) Add a toggle button to the existing bottom UI row
-  const ui = document.getElementById('ui');
-  if (ui) {
-    const row = ui.querySelector('.row') || ui;
-    const btn = document.createElement('button');
-    btn.id = 'swapUD';
-    btn.type = 'button';
-    btn.className = 'btn';
-    btn.textContent = 'Swap U/D';
-    btn.style.minWidth = '90px';
-    btn.style.userSelect = 'none';
-    row.appendChild(btn);
-
-    // Global flag so other patches can see it if needed
-    window.__DAR_SWAP_UD = !!window.__DAR_SWAP_UD;
-
-    btn.addEventListener('click', function(e){
-      e.stopPropagation();
-      window.__DAR_SWAP_UD = !window.__DAR_SWAP_UD;
-      btn.classList.toggle('active', window.__DAR_SWAP_UD);
-    });
-  }
-
-  // 2) Override mirrorY to flip only vertical when toggled
-  if (typeof mirrorY === 'function') {
-    const __orig_mirrorY = mirrorY;
-    mirrorY = function(a){
-      // Normal behavior uses π - a.
-      // Swapped vertical uses π + a (equivalent to flipping up/down, keeping left/right).
-      return (window.__DAR_SWAP_UD ? (Math.PI + a) : __orig_mirrorY(a));
-    };
-  }
-})();
-})();
-   /* PATCH: Gamepad toggle + live readout + left-stick control */
-(function(){
-  // ---- UI: add toggle button ----
-  const ui = document.getElementById('ui');
-  if (ui) {
-    const row = ui.querySelector('.row') || ui;
-    const btn = document.createElement('button');
-    btn.id = 'gamepadToggle';
-    btn.type = 'button';
-    btn.className = 'btn';
-    btn.textContent = 'Gamepad';
-    btn.style.minWidth = '96px';
-    row.appendChild(btn);
-
-    btn.addEventListener('click', (e)=>{
-      e.stopPropagation();
-      window.__DAR_GAMEPAD = !window.__DAR_GAMEPAD;
-      btn.classList.toggle('active', window.__DAR_GAMEPAD);
-      gpStatus.style.display = window.__DAR_GAMEPAD ? 'block' : 'none';
-    });
-  }
-
-  // ---- HUD: live status panel ----
-  const gpStatus = document.createElement('div');
-  gpStatus.id = 'gpStatus';
-  gpStatus.style.cssText = `
-    position:fixed; right:.6rem; top:.6rem; z-index:18; display:none;
-    background:#181a20; border:1px solid #3a3d45; border-radius:10px;
-    padding:.5rem .6rem; font:12px/1.25 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif; color:#e8e8ea;
-    box-shadow:0 6px 18px rgba(0,0,0,.35);
-  `;
-  gpStatus.innerHTML = `<div><b>Gamepad</b>: <span id="gpConn">off</span></div>
-                        <div>id: <span id="gpId">—</span></div>
-                        <div>axes: <span id="gpAxes">0,0</span></div>`;
-  document.body.appendChild(gpStatus);
-
-  const elConn = gpStatus.querySelector('#gpConn');
-  const elId   = gpStatus.querySelector('#gpId');
-  const elAxes = gpStatus.querySelector('#gpAxes');
-
-  // ---- State ----
-  window.__DAR_GAMEPAD = !!window.__DAR_GAMEPAD;   // toggle
-  const DEADZONE = 0.15;  // ignore tiny drift
-  let lastPadIndex = null;
-
-  // Prefer rAF polling (mobile-friendly)
-  function pollGamepad(){
-    if (!window.__DAR_GAMEPAD) return requestAnimationFrame(pollGamepad);
-
-    const pads = navigator.getGamepads ? navigator.getGamepads() : [];
-    let pad = null, padIndex = lastPadIndex;
-
-    // Reuse last pad if still connected; else pick first connected
-    if (padIndex!=null && pads[padIndex] && pads[padIndex].connected) {
-      pad = pads[padIndex];
-    } else {
-      padIndex = null;
-      for (let i=0;i<pads.length;i++){
-        if (pads[i] && pads[i].connected) { pad = pads[i]; padIndex = i; break; }
-      }
-      lastPadIndex = padIndex;
-    }
-
-    // Update status UI
-    if (pad) {
-      elConn.textContent = 'on';
-      elConn.style.color = '#7bd88f';
-      elId.textContent   = pad.id || ('Pad ' + padIndex);
-    } else {
-      elConn.textContent = 'off';
-      elConn.style.color = '#ff5c5c';
-      elId.textContent   = '—';
-    }
-
-    // Feed left stick into your existing joystick pipeline
-    if (pad) {
-      const ax = (pad.axes && pad.axes.length>0) ? pad.axes[0] : 0; // left/right
-      const ay = (pad.axes && pad.axes.length>1) ? pad.axes[1] : 0; // up/down (positive is down)
-      // Deadzone
-      const x = (Math.abs(ax) < DEADZONE) ? 0 : ax;
-      const y = (Math.abs(ay) < DEADZONE) ? 0 : ay;
-
-      elAxes.textContent = `${x.toFixed(2)}, ${y.toFixed(2)}`;
-
-      // Map [-1..1] to your joystick radius
-      if (typeof JOY_BASE_R === 'number') {
-        const mag = Math.hypot(x, y);
-        // When actively using gamepad, drive joyVec directly.
-        if (mag > DEADZONE) {
-          // Match touch orientation: +x right, +y down (your pipeline already mirrors Y with mirrorY)
-          const jx = x * JOY_BASE_R;
-          const jy = y * JOY_BASE_R;
-
-          // If user is currently touching screen joystick, don't fight them.
-          if (!window.joyActive) {
-            // Ensure these globals exist in your build:
-            if (typeof JOY_CENTER !== 'undefined' && typeof createVector === 'function') {
-              window.joyVec = createVector(jx, jy);
-              window.joyActive = true; // behave like the stick is being held
-            } else {
-              // Fallback: directly nudge the smoothed stick (less ideal but safe)
-              if (window.smJoy) { smJoy.x = jx; smJoy.y = jy; }
-            }
-          }
-        } else {
-          // Stick centered → release virtual stick if we activated it
-          if (window.joyActive && !window.activePointerId) {
-            window.joyActive = false;
-            window.joyVec = null;
-          }
-        }
-      }
-    } else {
-      elAxes.textContent = '0,0';
-      // No pad → release virtual stick (if not pressed by touch)
-      if (window.joyActive && !window.activePointerId) {
-        window.joyActive = false;
-        window.joyVec = null;
-      }
-    }
-
-    requestAnimationFrame(pollGamepad);
-  }
-
-  // Start the poll loop
-  requestAnimationFrame(pollGamepad);
-
-  // Optional: update when gamepads connect/disconnect (not all mobile browsers fire these reliably)
-  window.addEventListener('gamepadconnected', ()=> { if (window.__DAR_GAMEPAD) gpStatus.style.display='block'; });
-  window.addEventListener('gamepaddisconnected', ()=> { /* UI updates handled by poll */ });
-
-})();
-/* === PATCH ZONE END === */
   </script>
 </body>
 </html>
