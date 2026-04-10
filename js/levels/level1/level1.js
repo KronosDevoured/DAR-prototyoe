@@ -4,6 +4,7 @@
 
 import { millis, random, degrees, noStroke, fill, circle, stroke, strokeWeight, line } from '../../helpers.js';
 import { state } from '../../state.js';
+import { ARROW_LEN } from '../../constants.js';
 import { mirrorY, fitTargetAtAngle } from '../../math.js';
 import { drawSquareColored, drawArrowWorld, arrowColorFor } from '../../render.js';
 import { updateScore } from '../../ui.js';
@@ -71,6 +72,7 @@ export function onResize() {
 export function restart() {
   state.scoreHits = 0; state.scoreTotal = 0; state.target = null;
   _prevJoyActive = false; _joyStartMs = 0; _lastAngle = null;
+  _lastDotX = null; _lastDotY = null;
   spawnTarget(); l1StartMs = millis();
   updateScore();
 }
@@ -79,6 +81,8 @@ export function restart() {
 let _prevJoyActive = false;
 let _joyStartMs    = 0;
 let _lastAngle     = null;
+let _lastDotX      = null;
+let _lastDotY      = null;
 
 // ===== Run (called every frame) =====
 export function run(dt) {
@@ -88,6 +92,12 @@ export function run(dt) {
   if(state.target) {
     noStroke(); fill('#ffd166'); circle(state.target.x, state.target.y, L1_TARGET_RADIUS*2);
     stroke('#5a5a5a'); strokeWeight(2); line(state.center.x, state.center.y, state.target.x, state.target.y);
+  }
+
+  // Last-attempt dot
+  if(_lastDotX !== null) {
+    noStroke(); fill('rgba(255,255,255,0.45)');
+    circle(_lastDotX, _lastDotY, L1_TARGET_RADIUS*2);
   }
 
   const joyNow = state.joyActive || state.gpActive;
@@ -107,6 +117,9 @@ export function run(dt) {
     const held = millis() - _joyStartMs;
     state.scoreTotal++;
     if(held <= HOLD_TO_ARC_MS && _lastAngle !== null) {
+      // Store dot at arrow endpoint
+      _lastDotX = state.center.x + Math.cos(_lastAngle) * ARROW_LEN;
+      _lastDotY = state.center.y + Math.sin(_lastAngle) * ARROW_LEN;
       let err = _lastAngle - state.target.angle;
       while(err >  Math.PI) err -= 2*Math.PI;
       while(err < -Math.PI) err += 2*Math.PI;
@@ -117,6 +130,7 @@ export function run(dt) {
         updateScore({ text: 'Miss', good: false });
       }
     } else {
+      _lastDotX = null; _lastDotY = null;
       updateScore({ text: 'Too slow', good: false });
     }
     spawnTarget();
