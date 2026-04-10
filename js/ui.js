@@ -102,9 +102,9 @@ export function setupUI(callbacks) {
   const spinValue      = document.getElementById('spinValue');
   const spinLabelPrefix = document.getElementById('spinLabelPrefix');
   if(spinRange) {
-    spinRange.value = '1.15'; spinValue.textContent = '1.15 s/rot'; spinLabelPrefix.textContent = 'L2 Spin';
+    spinRange.value = '3.00'; spinValue.textContent = '1.15 s/rot'; spinLabelPrefix.textContent = 'L2 Spin';
     spinRange.addEventListener('input', () => {
-      const s = Math.max(1.15, Math.min(3.0, parseFloat(spinRange.value)));
+      const s = Math.max(1.15, Math.min(3.0, 4.15 - parseFloat(spinRange.value)));
       callbacks.onSpinChange(s);
       spinValue.textContent = s.toFixed(2) + ' s/rot';
     });

@@ -42,7 +42,7 @@ export function setLevel(n) {
   const spinLabelPrefix = document.getElementById('spinLabelPrefix');
   if(spinRange && spinValue) {
     const val = (n===2 ? L2.getSpinPeriod() : L3.getSpinPeriod()) / 1000;
-    spinRange.value = val.toFixed(2); spinValue.textContent = val.toFixed(2) + ' s/rot';
+    spinRange.value = (4.15 - val).toFixed(2); spinValue.textContent = val.toFixed(2) + ' s/rot';
     spinLabelPrefix.textContent = (n===2 ? 'L2 Spin' : 'L3 Spin');
   }
   updateTempoTag(L2.getSpinPeriod(), L3.getSpinPeriod());
