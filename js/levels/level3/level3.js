@@ -7,6 +7,7 @@ import { state } from '../../state.js';
 import { SQUARE_HALF, ARROW_TAU_MS, STICK_MIN_MAG } from '../../constants.js';
 import { emaAlpha, angleLerp, mirrorY } from '../../math.js';
 import { drawSquareColored, drawArrowWorld, arrowColorFor } from '../../render.js';
+import { updateScore } from '../../ui.js';
 
 // ===== L3 tuning =====
 let L3_SPIN_PERIOD_MS = 1150;
@@ -37,7 +38,9 @@ const _hudCache = { speed: null, dist: null, lives: null };
 
 // Callback to main's full restart (set via init to avoid circular deps)
 let _globalRestart = null;
+let _preserveScore = false;
 export function init({ restart }) { _globalRestart = restart; }
+function autoRestart() { _preserveScore = true; if(_globalRestart) _globalRestart(); }
 
 // ===== Course generation =====
 function randRange(a, b) { return a + Math.random()*(b-a); }
@@ -95,7 +98,9 @@ function handleL3Crash() {
   const r = document.getElementById('result');
   if(r) { r.textContent = 'Crash!'; r.className = 'tag bad'; r.style.display = 'inline-block'; }
   if(l3Lives <= 0) {
-    setTimeout(() => { if(_globalRestart) _globalRestart(); }, 650);
+    state.scoreTotal++;
+    updateScore();
+    setTimeout(() => { autoRestart(); }, 650);
   } else {
     setTimeout(() => {
       l3Pos = createVector(width*.5, height*.75); l3Vel = createVector(0,0);
@@ -105,9 +110,11 @@ function handleL3Crash() {
 }
 
 function handleL3Win() {
+  state.scoreHits++; state.scoreTotal++;
+  updateScore();
   const r = document.getElementById('result');
   if(r) { r.textContent = 'Goal!'; r.className = 'tag good'; r.style.display = 'inline-block'; }
-  setTimeout(() => { if(_globalRestart) _globalRestart(); }, 800);
+  setTimeout(() => { autoRestart(); }, 800);
 }
 
 // ===== Resize =====
@@ -115,6 +122,8 @@ export function onResize() { clampCourseForScreen(); }
 
 // ===== Restart =====
 export function restart() {
+  if(!_preserveScore) { state.scoreHits = 0; state.scoreTotal = 0; updateScore(); }
+  _preserveScore = false;
   l3Dist = 0; l3Lives = L3_LIVES_START; l3ArrowActive = false;
   _hudCache.speed = null; _hudCache.dist = null; _hudCache.lives = null;
   l3Pos = createVector(width*.5, height*.75); l3Vel = createVector(0,0);

@@ -2,7 +2,7 @@
 // All L1-specific constants, state, and logic live here.
 // Tweak values in this file without risk of affecting L2 or L3.
 
-import { millis, random, noStroke, fill, circle, stroke, strokeWeight, line } from '../../helpers.js';
+import { millis, random, degrees, noStroke, fill, circle, stroke, strokeWeight, line } from '../../helpers.js';
 import { state } from '../../state.js';
 import { mirrorY, fitTargetAtAngle } from '../../math.js';
 import { drawSquareColored, drawArrowWorld, arrowColorFor } from '../../render.js';
@@ -65,9 +65,15 @@ export function onResize() {
 // ===== Restart =====
 export function restart() {
   state.scoreHits = 0; state.scoreTotal = 0; state.target = null;
+  _prevJoyActive = false; _joyStartMs = 0; _lastAngle = null;
   spawnTarget(); l1StartMs = millis();
   updateScore();
 }
+
+// ===== Hit-detection state =====
+let _prevJoyActive = false;
+let _joyStartMs    = 0;
+let _lastAngle     = null;
 
 // ===== Run (called every frame) =====
 export function run(dt) {
@@ -79,9 +85,37 @@ export function run(dt) {
     stroke('#5a5a5a'); strokeWeight(2); line(state.center.x, state.center.y, state.target.x, state.target.y);
   }
 
-  if((state.joyActive || state.gpActive) && state.joyVec) {
+  const joyNow = state.joyActive || state.gpActive;
+
+  // Track flick start
+  if(joyNow && !_prevJoyActive) { _joyStartMs = millis(); _lastAngle = null; }
+
+  if(joyNow && state.joyVec) {
     const raw    = Math.atan2(state.invertUD ? state.smJoy.y : -state.smJoy.y, state.smJoy.x);
     const thWorld = spin + mirrorY(raw);
+    _lastAngle = thWorld;
     drawArrowWorld(state.center, thWorld, arrowColorFor(thWorld, spin));
   }
+
+  // Flick released — evaluate
+  if(!joyNow && _prevJoyActive && state.target) {
+    const held = millis() - _joyStartMs;
+    state.scoreTotal++;
+    if(held <= HOLD_TO_ARC_MS && _lastAngle !== null) {
+      let err = _lastAngle - state.target.angle;
+      while(err >  Math.PI) err -= 2*Math.PI;
+      while(err < -Math.PI) err += 2*Math.PI;
+      if(Math.abs(degrees(err)) <= L1_TOL_DEG) {
+        state.scoreHits++;
+        updateScore({ text: 'Hit!', good: true });
+      } else {
+        updateScore({ text: 'Miss', good: false });
+      }
+    } else {
+      updateScore({ text: 'Too slow', good: false });
+    }
+    spawnTarget();
+  }
+
+  _prevJoyActive = joyNow;
 }

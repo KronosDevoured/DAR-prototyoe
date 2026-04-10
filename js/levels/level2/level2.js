@@ -7,6 +7,7 @@ import { state } from '../../state.js';
 import { ARROW_TAU_MS, STICK_MIN_MAG } from '../../constants.js';
 import { emaAlpha, angleLerp, mirrorY, fitTargetAtAngle } from '../../math.js';
 import { drawSquareColored, drawArrowWorld, arrowColorFor } from '../../render.js';
+import { updateScore } from '../../ui.js';
 
 // ===== L2 tuning =====
 let L2_SPIN_PERIOD_MS = 1150;
@@ -32,10 +33,12 @@ export function onResize() {
 
 // ===== Restart =====
 export function restart() {
+  state.scoreHits = 0; state.scoreTotal = 0;
   l2StartMs = millis(); l2HoldMs = 0; l2ArrowActive = false;
   l2TargetAngle = random(-Math.PI, Math.PI);
   const fit = fitTargetAtAngle(l2TargetAngle, 260, 24); l2TargetR = fit.r;
   if(state._dom.aimTag) state._dom.aimTag.textContent = 'Aim \u2014';
+  updateScore();
 }
 
 // ===== Run (called every frame) =====
@@ -72,9 +75,17 @@ export function run(dt) {
     if(state._dom.aimTag) state._dom.aimTag.textContent = 'Aim \u2014';
   }
 
-  if(l2HoldMs >= L2_HOLD_MS || (t - l2StartMs > ROUND_MS)) {
+  if(l2HoldMs >= L2_HOLD_MS) {
+    state.scoreHits++; state.scoreTotal++;
+    updateScore({ text: 'Locked!', good: true });
     l2StartMs = millis(); l2HoldMs = 0;
     l2TargetAngle = random(-Math.PI, Math.PI);
     const fit = fitTargetAtAngle(l2TargetAngle, 260, 24); l2TargetR = fit.r;
+  } else if(t - l2StartMs > ROUND_MS) {
+    state.scoreTotal++;
+    updateScore();
+    l2StartMs = millis(); l2HoldMs = 0;
+    l2TargetAngle = random(-Math.PI, Math.PI);
+    const fit2 = fitTargetAtAngle(l2TargetAngle, 260, 24); l2TargetR = fit2.r;
   }
 }
