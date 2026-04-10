@@ -144,6 +144,15 @@ export function setupUI(callbacks) {
     applyL1Spin(parseFloat(l1Slider.value) || 0);
   }
 
+  // L1 spin mode toggle (Box Spins / Circle Spins)
+  const l1SpinModeBtn = document.getElementById('l1SpinModeBtn');
+  if(l1SpinModeBtn) {
+    l1SpinModeBtn.addEventListener('click', e => {
+      e.stopPropagation();
+      callbacks.onL1SpinModeToggle();
+    });
+  }
+
   // Gamepad connection events
   window.addEventListener('gamepadconnected', () => {
     if(state._dom.gamepadTag) state._dom.gamepadTag.classList.remove('hidden');

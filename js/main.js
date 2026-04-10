@@ -56,6 +56,9 @@ export function setLevel(n) {
     fpBtn.classList.remove('active');
     fpBtn.textContent = 'Freeplay';
   }
+  // Reset L1 spin mode on every level switch
+  const spinModeBtn = document.getElementById('l1SpinModeBtn');
+  if(spinModeBtn) { L1.setSpinMode('box'); spinModeBtn.classList.remove('active'); spinModeBtn.textContent = 'Spin: Box'; }
   restart(); showGoal();
 }
 
@@ -112,6 +115,12 @@ function setup() {
     onL1DiffChange:  (d, diffTag) => L1.applyDifficulty(d, diffTag),
     onL2DiffChange:  (d, tag)     => L2.applyDifficulty(d, tag),
     onL1SpinSlider:  (val, label) => L1.applySpinSlider(val, label),
+    onL1SpinModeToggle: () => {
+      const nowCircle = L1.getSpinMode() !== 'circle';
+      L1.setSpinMode(nowCircle ? 'circle' : 'box');
+      const btn = document.getElementById('l1SpinModeBtn');
+      if(btn) { btn.classList.toggle('active', nowCircle); btn.textContent = nowCircle ? 'Spin: Circle' : 'Spin: Box'; }
+    },
     onFreeplayToggle: () => {
       const on = !L3.isFreeplay();
       L3.setFreeplay(on);

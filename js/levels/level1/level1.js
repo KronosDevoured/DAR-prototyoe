@@ -17,6 +17,10 @@ export const TARGET_DIST   = 220;
 // ===== L1 private state =====
 let L1_SPIN_PERIOD_MS = 0;
 let l1StartMs         = 0;
+let _spinMode         = 'box'; // 'box' | 'circle'
+
+export function getSpinMode() { return _spinMode; }
+export function setSpinMode(mode) { _spinMode = mode; }
 
 // ===== Spin angle =====
 export function l1CurrentSpinAngle() {
@@ -90,14 +94,27 @@ let _lastTargetR   = null;
 // ===== Run (called every frame) =====
 export function run(dt) {
   const spin = l1CurrentSpinAngle();
-  drawSquareColored(state.center, spin);
+  // In circle mode the box is stationary (green-up); the target orbits instead
+  const boxAngle = _spinMode === 'box' ? spin : Math.PI;
+  drawSquareColored(state.center, boxAngle);
 
   // Orbit ring at TARGET_DIST — drawn first so everything sits on top
   noFill(); stroke('rgba(255,255,255,0.12)'); strokeWeight(1);
   circle(state.center.x, state.center.y, TARGET_DIST * 2);
 
+  // Compute current effective target position
+  let currentTargetX = null, currentTargetY = null, currentTargetAngle = null;
   if(state.target) {
-    noStroke(); fill('#ffd166'); circle(state.target.x, state.target.y, L1_TARGET_RADIUS*2);
+    if(_spinMode === 'circle') {
+      // Target orbits the center: base angle + spin delta
+      currentTargetAngle = state.target.angle + (spin - Math.PI);
+      const fit = fitTargetAtAngle(currentTargetAngle, TARGET_DIST, L1_TARGET_RADIUS + 8);
+      currentTargetX = fit.x; currentTargetY = fit.y;
+    } else {
+      currentTargetAngle = state.target.angle;
+      currentTargetX = state.target.x; currentTargetY = state.target.y;
+    }
+    noStroke(); fill('#ffd166'); circle(currentTargetX, currentTargetY, L1_TARGET_RADIUS*2);
   }
 
   // Last-attempt ghost: target outline + flick dot
@@ -116,10 +133,10 @@ export function run(dt) {
   if(joyNow && !_prevJoyActive) { _joyStartMs = millis(); _lastAngle = null; }
 
   if(joyNow && state.joyVec) {
-    const raw    = Math.atan2(state.invertUD ? state.smJoy.y : -state.smJoy.y, state.smJoy.x);
-    const thWorld = spin + mirrorY(raw);
+    const raw     = Math.atan2(state.invertUD ? state.smJoy.y : -state.smJoy.y, state.smJoy.x);
+    const thWorld = boxAngle + mirrorY(raw);
     _lastAngle = thWorld;
-    drawArrowWorld(state.center, thWorld, arrowColorFor(thWorld, spin));
+    drawArrowWorld(state.center, thWorld, arrowColorFor(thWorld, boxAngle));
   }
 
   // Flick released — evaluate
@@ -127,11 +144,14 @@ export function run(dt) {
     const held = millis() - _joyStartMs;
     state.scoreTotal++;
     if(held <= HOLD_TO_ARC_MS && _lastAngle !== null) {
-      // Store dot and ghost target
-      _lastDotX = state.center.x + Math.cos(_lastAngle) * TARGET_DIST;
-      _lastDotY = state.center.y + Math.sin(_lastAngle) * TARGET_DIST;
-      _lastTargetX = state.target.x; _lastTargetY = state.target.y; _lastTargetR = L1_TARGET_RADIUS;
-      let err = _lastAngle - state.target.angle;
+      // Capture target position at release moment (orbit angle already computed above for this frame)
+      const evalAngle = currentTargetAngle;
+      const evalX     = currentTargetX;
+      const evalY     = currentTargetY;
+      _lastDotX    = state.center.x + Math.cos(_lastAngle) * TARGET_DIST;
+      _lastDotY    = state.center.y + Math.sin(_lastAngle) * TARGET_DIST;
+      _lastTargetX = evalX; _lastTargetY = evalY; _lastTargetR = L1_TARGET_RADIUS;
+      let err = _lastAngle - evalAngle;
       while(err >  Math.PI) err -= 2*Math.PI;
       while(err < -Math.PI) err += 2*Math.PI;
       if(Math.abs(degrees(err)) <= L1_TOL_DEG) {
