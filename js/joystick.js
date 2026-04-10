@@ -18,27 +18,33 @@ export function vecFromJoyPx(x, y) {
 }
 
 export function attachCanvasJoystickHandlers() {
-  let activeId = null, pressT = 0;
+  let activeId = null, pressX = 0, pressY = 0, relocateTimer = null;
+
+  function cancelRelocate() {
+    if(relocateTimer) { clearTimeout(relocateTimer); relocateTimer = null; }
+    state.relocating = false;
+  }
 
   canvas.addEventListener('pointerdown', e => {
-    pressT = performance.now();
     try { e.target.setPointerCapture(e.pointerId); } catch(_) {}
     if(inJoyLoose(e.clientX, e.clientY)) {
       activeId = e.pointerId; state.joyActive = true; state.joyVec = vecFromJoyPx(e.clientX, e.clientY);
     } else {
-      activeId = e.pointerId; state.relocating = true;
+      activeId = e.pointerId; pressX = e.clientX; pressY = e.clientY; state.relocating = true;
+      relocateTimer = setTimeout(() => {
+        if(state.relocating) {
+          state.JOY_CENTER = createVector(pressX, pressY);
+          state.relocating = false;
+        }
+        relocateTimer = null;
+      }, JOY_LONGPRESS_MS);
     }
     e.preventDefault();
   }, { passive: false });
 
   canvas.addEventListener('pointermove', e => {
     if(activeId !== e.pointerId) return;
-    if(state.relocating) {
-      if(performance.now() - pressT >= JOY_LONGPRESS_MS) {
-        state.JOY_CENTER = createVector(e.clientX, e.clientY);
-        state.relocating = false;
-      }
-    } else if(state.joyActive) {
+    if(state.joyActive) {
       state.joyVec = vecFromJoyPx(e.clientX, e.clientY);
     }
     e.preventDefault();
@@ -48,7 +54,7 @@ export function attachCanvasJoystickHandlers() {
     if(activeId !== e.pointerId) return;
     try { canvas.releasePointerCapture(e.pointerId); } catch(_) {}
     if(state.joyActive) { state.joyActive = false; state.joyVec = null; }
-    state.relocating = false; activeId = null; e.preventDefault();
+    cancelRelocate(); activeId = null; e.preventDefault();
   }
   canvas.addEventListener('pointerup',     endPtr, { passive: false });
   canvas.addEventListener('pointercancel', endPtr, { passive: false });

@@ -6,7 +6,7 @@ export const ARROW_LEN      = 110;
 
 export const JOY_BASE_R     = 88;
 export const JOY_KNOB_R     = 28;
-export const JOY_LONGPRESS_MS = 1200;
+export const JOY_LONGPRESS_MS = 250;
 
 export const STICK_TAU_MS   = 38;
 export const ARROW_TAU_MS   = 55;
