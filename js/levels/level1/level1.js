@@ -2,7 +2,7 @@
 // All L1-specific constants, state, and logic live here.
 // Tweak values in this file without risk of affecting L2 or L3.
 
-import { millis, random, degrees, noStroke, noFill, fill, circle, stroke, strokeWeight, line } from '../../helpers.js';
+import { millis, random, degrees, noStroke, noFill, fill, circle, stroke, strokeWeight } from '../../helpers.js';
 import { state } from '../../state.js';
 import { mirrorY, fitTargetAtAngle } from '../../math.js';
 import { drawSquareColored, drawArrowWorld, arrowColorFor } from '../../render.js';
@@ -92,9 +92,12 @@ export function run(dt) {
   const spin = l1CurrentSpinAngle();
   drawSquareColored(state.center, spin);
 
+  // Orbit ring at TARGET_DIST — drawn first so everything sits on top
+  noFill(); stroke('rgba(255,255,255,0.12)'); strokeWeight(1);
+  circle(state.center.x, state.center.y, TARGET_DIST * 2);
+
   if(state.target) {
     noStroke(); fill('#ffd166'); circle(state.target.x, state.target.y, L1_TARGET_RADIUS*2);
-    stroke('#5a5a5a'); strokeWeight(2); line(state.center.x, state.center.y, state.target.x, state.target.y);
   }
 
   // Last-attempt ghost: target outline + flick dot
