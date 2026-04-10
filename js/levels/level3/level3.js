@@ -158,8 +158,7 @@ export function run(dt) {
     l3Vel.y += Math.sin(head) * L3_ACCEL * dtSec;
     const sp = l3Vel.mag(); if(sp > L3_MAX_SPEED) l3Vel.mult(L3_MAX_SPEED / sp);
   } else {
-    const damp = Math.exp(-dtSec / L3_DAMPING_S); l3Vel.mult(damp);
-    if(l3Vel.mag() < 3) { l3Vel.x = 0; l3Vel.y = 0; }
+    l3Vel.x = 0; l3Vel.y = 0;
   }
   l3Pos.x += l3Vel.x * dtSec; l3Pos.y += l3Vel.y * dtSec;
   l3Dist  += l3Vel.mag() * dtSec;
