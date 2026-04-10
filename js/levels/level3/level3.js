@@ -39,6 +39,9 @@ const _hudCache = { speed: null, dist: null, lives: null };
 // Callback to main's full restart (set via init to avoid circular deps)
 let _globalRestart = null;
 let _preserveScore = false;
+let _freeplay      = false;
+export function isFreeplay() { return _freeplay; }
+export function setFreeplay(val) { _freeplay = val; }
 export function init({ restart }) { _globalRestart = restart; }
 function autoRestart() { _preserveScore = true; if(_globalRestart) { _globalRestart(); } else { restart(); } }
 
@@ -165,15 +168,19 @@ export function run(dt) {
   clampCourseForScreen();
 
   // Draw
-  noStroke(); fill('#7bd88f'); circle(l3Goal.x, l3Goal.y, l3Goal.r*2);
-  noFill(); stroke('#ff9472'); strokeWeight(3);
-  for(const o of l3Obstacles) circle(o.x, o.y, o.r*2);
+  if(!_freeplay) {
+    noStroke(); fill('#7bd88f'); circle(l3Goal.x, l3Goal.y, l3Goal.r*2);
+    noFill(); stroke('#ff9472'); strokeWeight(3);
+    for(const o of l3Obstacles) circle(o.x, o.y, o.r*2);
+  }
   drawSquareColored(l3Pos, spin);
   if(head != null) drawArrowWorld(l3Pos, state.arrowAngleRender, arrowColorFor(state.arrowAngleRender, spin));
 
-  // Collisions
-  for(const o of l3Obstacles) {
-    if(dist(l3Pos.x, l3Pos.y, o.x, o.y) < (SQUARE_HALF+4+o.r)) { handleL3Crash(); return; }
+  // Collisions (skipped in freeplay)
+  if(!_freeplay) {
+    for(const o of l3Obstacles) {
+      if(dist(l3Pos.x, l3Pos.y, o.x, o.y) < (SQUARE_HALF+4+o.r)) { handleL3Crash(); return; }
+    }
+    if(dist(l3Pos.x, l3Pos.y, l3Goal.x, l3Goal.y) < (SQUARE_HALF+4+l3Goal.r)) { handleL3Win(); return; }
   }
-  if(dist(l3Pos.x, l3Pos.y, l3Goal.x, l3Goal.y) < (SQUARE_HALF+4+l3Goal.r)) { handleL3Win(); return; }
 }

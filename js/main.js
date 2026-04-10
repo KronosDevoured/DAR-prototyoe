@@ -46,6 +46,14 @@ export function setLevel(n) {
     spinLabelPrefix.textContent = (n===2 ? 'L2 Spin' : 'L3 Spin');
   }
   updateTempoTag(L2.getSpinPeriod(), L3.getSpinPeriod());
+  // Show/reset freeplay button only on L3
+  const fpBtn = document.getElementById('l3Freeplay');
+  if(fpBtn) {
+    fpBtn.style.display = (n===3) ? 'inline-flex' : 'none';
+    L3.setFreeplay(false);
+    fpBtn.classList.remove('active');
+    fpBtn.textContent = 'Freeplay';
+  }
   restart(); showGoal();
 }
 
@@ -101,6 +109,12 @@ function setup() {
     },
     onL1DiffChange:  (d, diffTag) => L1.applyDifficulty(d, diffTag),
     onL1SpinSlider:  (val, label) => L1.applySpinSlider(val, label),
+    onFreeplayToggle: () => {
+      const on = !L3.isFreeplay();
+      L3.setFreeplay(on);
+      const fpBtn = document.getElementById('l3Freeplay');
+      if(fpBtn) { fpBtn.classList.toggle('active', on); fpBtn.textContent = on ? 'Freeplay: ON' : 'Freeplay'; }
+    },
   });
 
   attachCanvasJoystickHandlers();

@@ -89,6 +89,15 @@ export function setupUI(callbacks) {
   bind('rollR',   () => callbacks.setRoll(+1));
   bind('restart', () => callbacks.restart());
 
+  // L3 Freeplay toggle
+  const freeplayBtn = document.getElementById('l3Freeplay');
+  if(freeplayBtn) {
+    freeplayBtn.addEventListener('click', e => {
+      e.stopPropagation();
+      callbacks.onFreeplayToggle();
+    });
+  }
+
   // Swap U/D
   const swapBtn = document.getElementById('swapUD');
   swapBtn.addEventListener('click', e => {
