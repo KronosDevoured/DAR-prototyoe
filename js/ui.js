@@ -87,7 +87,6 @@ export function setupUI(callbacks) {
   bind('level3',  () => callbacks.setLevel(3));
   bind('rollL',   () => callbacks.setRoll(-1));
   bind('rollR',   () => callbacks.setRoll(+1));
-  bind('clear',   () => {});
   bind('restart', () => callbacks.restart());
 
   // Swap U/D
