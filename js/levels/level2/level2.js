@@ -14,19 +14,18 @@ let L2_SPIN_PERIOD_MS = 1150;
 export const ROUND_MS  = 10000;
 
 // Difficulty tables (d=1 easiest, d=5 hardest)
-const _tolTable  = [0, 18, 13,  9,  6,  4]; // degrees
 const _radTable  = [0, 80, 60, 40, 30, 20]; // px (target circle radius)
 const _holdTable = [0, 1500, 3000, 5000, 6500, 8000]; // ms cumulative
 
-let L2_TOL_DEG     = _tolTable[3];
+let L2_TOL_DEG     = 0; // derived from radius in applyDifficulty
 let L2_TARGET_R    = _radTable[3];
 let L2_HOLD_MS     = _holdTable[3];
 
 export function applyDifficulty(d, tag) {
-  L2_TOL_DEG  = _tolTable[d];
   L2_TARGET_R = _radTable[d];
   L2_HOLD_MS  = _holdTable[d];
-  if(tag) tag.textContent = `Tol ${L2_TOL_DEG}° • Radius ${L2_TARGET_R} • Hold ${(L2_HOLD_MS/1000).toFixed(1)}s`;
+  L2_TOL_DEG  = Math.atan(L2_TARGET_R / 260) * (180 / Math.PI) + 6;
+  if(tag) tag.textContent = `Tol ${L2_TOL_DEG.toFixed(1)}° • Radius ${L2_TARGET_R} • Hold ${(L2_HOLD_MS/1000).toFixed(1)}s`;
 }
 
 export function getSpinPeriod()   { return L2_SPIN_PERIOD_MS; }
