@@ -448,7 +448,7 @@
   /* =================== Gamepad input =================== */
   // Supports standard mapping: PS4/PS5 DualShock/DualSense, Xbox One/Series, and generic controllers.
   // Left stick axes[0]=LX, axes[1]=LY per the W3C Gamepad standard mapping spec.
-  const GP_DEAD=0.12; // dead zone radius (0..1)
+  const GP_DEAD=0.10; // dead zone radius (0..1)
   function pollGamepad(){
     if(joyActive){gpActive=false;return;} // touch input takes priority
     const pads=navigator.getGamepads?navigator.getGamepads():[];
