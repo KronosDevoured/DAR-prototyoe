@@ -106,8 +106,8 @@ export function run(dt) {
   let currentTargetX = null, currentTargetY = null, currentTargetAngle = null;
   if(state.target) {
     if(_spinMode === 'circle') {
-      // Target orbits the center: base angle + spin delta
-      currentTargetAngle = state.target.angle + (spin - Math.PI);
+      // Target orbits the center in the opposite direction to the box spin
+      currentTargetAngle = state.target.angle - (spin - Math.PI);
       const fit = fitTargetAtAngle(currentTargetAngle, TARGET_DIST, L1_TARGET_RADIUS + 8);
       currentTargetX = fit.x; currentTargetY = fit.y;
     } else {
