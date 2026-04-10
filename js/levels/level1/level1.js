@@ -2,7 +2,7 @@
 // All L1-specific constants, state, and logic live here.
 // Tweak values in this file without risk of affecting L2 or L3.
 
-import { millis, random, degrees, noStroke, fill, circle, stroke, strokeWeight, line } from '../../helpers.js';
+import { millis, random, degrees, noStroke, noFill, fill, circle, stroke, strokeWeight, line } from '../../helpers.js';
 import { state } from '../../state.js';
 import { mirrorY, fitTargetAtAngle } from '../../math.js';
 import { drawSquareColored, drawArrowWorld, arrowColorFor } from '../../render.js';
@@ -72,6 +72,7 @@ export function restart() {
   state.scoreHits = 0; state.scoreTotal = 0; state.target = null;
   _prevJoyActive = false; _joyStartMs = 0; _lastAngle = null;
   _lastDotX = null; _lastDotY = null;
+  _lastTargetX = null; _lastTargetY = null; _lastTargetR = null;
   spawnTarget(); l1StartMs = millis();
   updateScore();
 }
@@ -82,6 +83,9 @@ let _joyStartMs    = 0;
 let _lastAngle     = null;
 let _lastDotX      = null;
 let _lastDotY      = null;
+let _lastTargetX   = null;
+let _lastTargetY   = null;
+let _lastTargetR   = null;
 
 // ===== Run (called every frame) =====
 export function run(dt) {
@@ -93,7 +97,11 @@ export function run(dt) {
     stroke('#5a5a5a'); strokeWeight(2); line(state.center.x, state.center.y, state.target.x, state.target.y);
   }
 
-  // Last-attempt dot
+  // Last-attempt ghost: target outline + flick dot
+  if(_lastTargetX !== null) {
+    noFill(); stroke('rgba(255,209,102,0.4)'); strokeWeight(2);
+    circle(_lastTargetX, _lastTargetY, _lastTargetR * 2);
+  }
   if(_lastDotX !== null) {
     noStroke(); fill('rgba(255,255,255,0.55)');
     circle(_lastDotX, _lastDotY, 20);
@@ -116,9 +124,10 @@ export function run(dt) {
     const held = millis() - _joyStartMs;
     state.scoreTotal++;
     if(held <= HOLD_TO_ARC_MS && _lastAngle !== null) {
-      // Store dot at target distance along flick angle
+      // Store dot and ghost target
       _lastDotX = state.center.x + Math.cos(_lastAngle) * TARGET_DIST;
       _lastDotY = state.center.y + Math.sin(_lastAngle) * TARGET_DIST;
+      _lastTargetX = state.target.x; _lastTargetY = state.target.y; _lastTargetR = L1_TARGET_RADIUS;
       let err = _lastAngle - state.target.angle;
       while(err >  Math.PI) err -= 2*Math.PI;
       while(err < -Math.PI) err += 2*Math.PI;
@@ -130,6 +139,7 @@ export function run(dt) {
       }
     } else {
       _lastDotX = null; _lastDotY = null;
+      _lastTargetX = null; _lastTargetY = null; _lastTargetR = null;
       updateScore({ text: 'Too slow', good: false });
     }
     spawnTarget();
