@@ -9,7 +9,7 @@ export let goalVisible = false;
 export function goalTextFor(lv) {
   if(lv === 1) return { title: 'Level 1 — Quick Aim', text: 'A target spawns around the square. Flick the joystick toward it quickly and accurately. Only your initial flick counts; holding too long is a miss. Difficulty adjusts tolerance, target size, and how long that initial input window lasts.' };
   if(lv === 2) return { title: 'Level 2 — Match the Spin', text: 'The square spins. Use the joystick to aim your arrow at the yellow target. Hold on target long enough to lock it. The spin changes your aim — counter the rotation.' };
-  return { title: 'Level 3 — Navigate the Course', text: 'Push the joystick to set a heading relative to the spinning square. Avoid obstacles and reach the green goal before you run out of lives.' };
+  return { title: 'Level 3 — Navigate the Course', text: 'Push the joystick to set a heading relative to the spinning square. Try to reach the goal by avoiding the obstacles and score as many points as you can before you run out of lives.' };
 }
 
 export function showGoal() {
