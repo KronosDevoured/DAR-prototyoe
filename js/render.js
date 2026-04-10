@@ -18,8 +18,9 @@ export function drawSquareColored(pos, angle) {
 
   push(); translate(pos.x, pos.y); rotate(angle);
 
-  // Subtle dark fill so the box reads as a solid object against the grid
-  noStroke(); fill('rgba(24,26,36,0.92)');
+  // Subtle dark-grey fill so the box reads as solid against the grid
+  noStroke();
+  ctx.fillStyle = '#23252e';
   ctx.beginPath(); ctx.rect(-H, -H, H*2, H*2); ctx.fill();
 
   // Colored edges — inset each endpoint by hw and use lineCap:'square' so the cap
