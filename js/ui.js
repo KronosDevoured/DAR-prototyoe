@@ -2,10 +2,8 @@
 // Receives all level/restart hooks via a callbacks object from main.js to avoid circular deps.
 
 import { state } from './state.js';
-import { GOAL_MS } from './constants.js';
 
 // ===== Goal panel =====
-let goalHideTimer = null;
 export let goalVisible = false;
 
 export function goalTextFor(lv) {
@@ -14,7 +12,7 @@ export function goalTextFor(lv) {
   return { title: 'Level 3 — Navigate the Course', text: 'Push the joystick to set a heading relative to the spinning square. Avoid obstacles and reach the green goal before you run out of lives.' };
 }
 
-export function showGoal(force = false) {
+export function showGoal() {
   const panel = document.getElementById('goalPanel');
   const { title, text } = goalTextFor(state.level);
   document.getElementById('goalTitle').textContent = title;
@@ -23,19 +21,16 @@ export function showGoal(force = false) {
   panel.classList.remove('hidden');
   goalVisible = true;
   if(state._dom.goalClose) state._dom.goalClose.focus();
-  if(goalHideTimer) clearTimeout(goalHideTimer);
-  if(!force) goalHideTimer = setTimeout(hideGoal, GOAL_MS);
 }
 
 export function hideGoal() {
   document.getElementById('goalPanel').classList.add('hidden');
   goalVisible = false;
-  if(goalHideTimer) { clearTimeout(goalHideTimer); goalHideTimer = null; }
   if(state._goalPrevFocus && typeof state._goalPrevFocus.focus === 'function') state._goalPrevFocus.focus();
   state._goalPrevFocus = null;
 }
 
-export function toggleGoal() { if(goalVisible) hideGoal(); else showGoal(true); }
+export function toggleGoal() { if(goalVisible) hideGoal(); else showGoal(); }
 
 // ===== Score / result =====
 export function updateScore(msg) {
