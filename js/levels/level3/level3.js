@@ -4,7 +4,7 @@
 
 import { millis, dist, createVector, noStroke, fill, noFill, circle, stroke, strokeWeight, width, height } from '../../helpers.js';
 import { state } from '../../state.js';
-import { SQUARE_HALF, ARROW_TAU_MS, STICK_MIN_MAG } from '../../constants.js';
+import { SQUARE_HALF, ARROW_TAU_MS, STICK_MIN_MAG, JOY_BASE_R } from '../../constants.js';
 import { emaAlpha, angleLerp, mirrorY } from '../../math.js';
 import { drawSquareColored, drawArrowWorld, arrowColorFor } from '../../render.js';
 import { updateScore } from '../../ui.js';
@@ -154,12 +154,12 @@ export function run(dt) {
     state.arrowAngleRender = angleLerp(state.arrowAngleRender, head, a);
   } else { l3ArrowActive = false; }
 
-  // Physics
+  // Physics — direct velocity, no acceleration or momentum
   const dtSec = dt / 1000;
   if(head != null) {
-    l3Vel.x += Math.cos(head) * L3_ACCEL * dtSec;
-    l3Vel.y += Math.sin(head) * L3_ACCEL * dtSec;
-    const sp = l3Vel.mag(); if(sp > L3_MAX_SPEED) l3Vel.mult(L3_MAX_SPEED / sp);
+    const norm = Math.min(1, mag / JOY_BASE_R);
+    l3Vel.x = Math.cos(head) * L3_MAX_SPEED * norm;
+    l3Vel.y = Math.sin(head) * L3_MAX_SPEED * norm;
   } else {
     l3Vel.x = 0; l3Vel.y = 0;
   }
