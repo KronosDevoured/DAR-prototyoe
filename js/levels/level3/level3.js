@@ -32,6 +32,7 @@ let l3Lives       = L3_LIVES_START;
 let l3Dist        = 0;
 let l3ArrowActive = false;
 let l3StartMs     = 0;
+let _crashed      = false; // guard: prevents multi-hit while respawning
 
 // Dirty-check cache to avoid redundant HUD DOM writes
 const _hudCache = { speed: null, dist: null, lives: null };
@@ -96,6 +97,8 @@ function updateL3Hud() {
 
 // ===== Crash / Win =====
 function handleL3Crash() {
+  if(_crashed) return;
+  _crashed = true;
   l3Lives--;
   _hudCache.lives = null; updateL3Hud();
   const r = document.getElementById('result');
@@ -107,6 +110,7 @@ function handleL3Crash() {
   } else {
     setTimeout(() => {
       l3Pos = createVector(width*.5, height*.75); l3Vel = createVector(0,0);
+      _crashed = false;
       const r = document.getElementById('result'); if(r) r.style.display = 'none';
     }, 650);
   }
@@ -127,6 +131,7 @@ export function onResize() { clampCourseForScreen(); }
 export function restart() {
   if(!_preserveScore) { state.scoreHits = 0; state.scoreTotal = 0; updateScore(); }
   _preserveScore = false;
+  _crashed = false;
   l3Dist = 0; l3Lives = L3_LIVES_START; l3ArrowActive = false;
   _hudCache.speed = null; _hudCache.dist = null; _hudCache.lives = null;
   l3Pos = createVector(width*.5, height*.75); l3Vel = createVector(0,0);
