@@ -4,6 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
 <title>dar-prototype — Android</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' rx='3' fill='%230e0f12'/><text x='8' y='12' font-size='10' font-weight='bold' text-anchor='middle' fill='%234c8dff'>D</text></svg>">
 <style>
   html,body{margin:0;padding:0;background:#0e0f12;color:#e8e8ea;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;height:100%}
   canvas{position:fixed;inset:0;z-index:0;touch-action:none}
@@ -38,7 +39,7 @@
   /* L1 vertical spin slider — flush left, raised higher */
   #l1SpinContainer{position:fixed;left:0;top:32%;transform:translateY(-50%);z-index:12;display:none;flex-direction:column;align-items:flex-start;gap:6px;pointer-events:auto}
   #l1SpinLabel{font:600 13px system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#e8e8ea;background:#181a20;border:1px solid #3a3d45;border-radius:999px;padding:2px 8px;white-space:nowrap;margin-left:4px}
-  #l1SpinSlider{position:absolute;left:0;top:22px;-webkit-appearance:slider-vertical;writing-mode:vertical-lr;width:30px;height:220px;margin:0;background:transparent}
+  #l1SpinSlider{position:absolute;left:0;top:22px;writing-mode:vertical-lr;direction:rtl;width:30px;height:220px;margin:0;background:transparent}
 
   #level2hud,#level3hud{align-items:center;gap:.5rem}
 </style>
@@ -66,6 +67,7 @@
   <div id="scoreHud">
     <div id="score" class="tag" aria-live="polite">Score 0 / 0</div>
     <div id="result" class="tag" aria-live="polite" style="display:none;"></div>
+    <span id="gamepadTag" class="tag hidden">Gamepad</span>
   </div>
 
   <!-- Level HUDs -->
@@ -152,6 +154,7 @@
   let target=null,scoreHits=0,scoreTotal=0;
   let l2StartMs=0,l2TargetAngle=0,l2TargetR=260,l2HoldMs=0,l2ArrowActive=false;
   let l3Pos,l3Goal,l3Obstacles=[],l3Lives=L3_LIVES_START,l3Dist=0,l3ArrowActive=false,l3Vel=null,l3StartMs=0;
+  let gpActive=false;
 
   // Setting: invert Up/Down mapping
   let invertUD=false;
@@ -168,6 +171,7 @@
     _dom.distTag=document.getElementById('distTag');
     _dom.livesTag=document.getElementById('livesTag');
     _dom.goalClose=document.getElementById('goalClose');
+    _dom.gamepadTag=document.getElementById('gamepadTag');
 
     // Hamburger toggles all chrome incl. sliders
     const menuBtn=document.getElementById('menuBtn'); let chromeShown=true;
@@ -232,6 +236,15 @@
 
     // Canvas-level joystick (pointer capture + long-press relocate)
     attachCanvasJoystickHandlers();
+
+    window.addEventListener('gamepadconnected',()=>{
+      if(_dom.gamepadTag) _dom.gamepadTag.classList.remove('hidden');
+    });
+    window.addEventListener('gamepaddisconnected',()=>{
+      gpActive=false;
+      const remaining=navigator.getGamepads?[...navigator.getGamepads()].filter(g=>g&&g.connected):[];
+      if(!remaining.length){ if(_dom.gamepadTag) _dom.gamepadTag.classList.add('hidden'); }
+    });
 
     window.addEventListener('resize',windowResized);
 
@@ -432,6 +445,25 @@
     canvas.addEventListener('pointercancel',endPtr,{passive:false});
   }
 
+  /* =================== Gamepad input =================== */
+  // Supports standard mapping: PS4/PS5 DualShock/DualSense, Xbox One/Series, and generic controllers.
+  // Left stick axes[0]=LX, axes[1]=LY per the W3C Gamepad standard mapping spec.
+  const GP_DEAD=0.12; // dead zone radius (0..1)
+  function pollGamepad(){
+    if(joyActive){gpActive=false;return;} // touch input takes priority
+    const pads=navigator.getGamepads?navigator.getGamepads():[];
+    let gp=null;
+    for(let i=0;i<pads.length;i++){if(pads[i]&&pads[i].connected){gp=pads[i];break;}}
+    if(!gp){if(gpActive){gpActive=false;joyVec=null;}return;}
+    const ax=gp.axes[0]||0, ay=gp.axes[1]||0;
+    const m=Math.hypot(ax,ay);
+    if(m<GP_DEAD){if(gpActive){gpActive=false;joyVec=null;}return;}
+    // Rescale [dead..1] -> [0..1] then map to joystick pixel radius
+    const norm=Math.min((m-GP_DEAD)/(1-GP_DEAD),1);
+    joyVec=createVector((ax/m)*norm*JOY_BASE_R,(ay/m)*norm*JOY_BASE_R);
+    gpActive=true;
+  }
+
   /* =================== Rendering =================== */
   function drawGrid(){stroke('#282a30');strokeWeight(1);for(let x=0;x<width;x+=40)line(x,0,x,height);for(let y=0;y<height;y+=40)line(0,y,width,y);}
   function drawSquareColored(pos,angle){
@@ -471,6 +503,7 @@
 
   /* =================== Game Loop =================== */
   function draw(dt){
+    pollGamepad();
     const a=emaAlpha(dt,STICK_TAU_MS);
     const tx=(joyVec?joyVec.x:0), ty=(joyVec?joyVec.y:0);
     smJoy.x+=(tx-smJoy.x)*a; smJoy.y+=(ty-smJoy.y)*a;
@@ -487,7 +520,7 @@
     // target & helper line
     if(target){noStroke();fill('#ffd166');circle(target.x,target.y,L1_TARGET_RADIUS*2);stroke('#5a5a5a');strokeWeight(2);line(center.x,center.y,target.x,target.y);}
     // arrow only while touching (initial flick visualization)
-    if(joyActive&&joyVec){
+    if((joyActive||gpActive)&&joyVec){
       const raw=Math.atan2( (invertUD ? smJoy.y : -smJoy.y), smJoy.x);
       const thWorld=spin+mirrorY(raw);
       const col=arrowColorFor(thWorld,spin);
