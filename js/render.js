@@ -12,12 +12,29 @@ export function drawGrid() {
 }
 
 export function drawSquareColored(pos, angle) {
-  push(); translate(pos.x, pos.y); rotate(angle); noFill(); strokeWeight(4);
-  stroke(COL_UP);    line(-SQUARE_HALF,-SQUARE_HALF,  SQUARE_HALF,-SQUARE_HALF); // top    (red)
-  stroke(COL_LEFT);  line( SQUARE_HALF,-SQUARE_HALF,  SQUARE_HALF, SQUARE_HALF); // right  (yellow)
-  stroke(COL_DOWN);  line( SQUARE_HALF, SQUARE_HALF, -SQUARE_HALF, SQUARE_HALF); // bottom (green)
-  stroke(COL_RIGHT); line(-SQUARE_HALF, SQUARE_HALF, -SQUARE_HALF,-SQUARE_HALF); // left   (blue)
-  stroke('#53d769'); strokeWeight(4); line(0, 0, 0, SQUARE_HALF+16);             // position indicator
+  const H  = SQUARE_HALF;
+  const sw = 4;
+  const hw = sw / 2; // half stroke width — used to inset endpoints so square caps fill corners cleanly
+
+  push(); translate(pos.x, pos.y); rotate(angle);
+
+  // Subtle dark fill so the box reads as a solid object against the grid
+  noStroke(); fill('rgba(24,26,36,0.92)');
+  ctx.beginPath(); ctx.rect(-H, -H, H*2, H*2); ctx.fill();
+
+  // Colored edges — inset each endpoint by hw and use lineCap:'square' so the cap
+  // extends exactly to the corner with no gap and no ragged overlap between sides
+  noFill(); strokeWeight(sw); ctx.lineCap = 'square';
+  stroke(COL_UP);    line(-H+hw, -H,    H-hw, -H   ); // top    (red)
+  stroke(COL_LEFT);  line( H,   -H+hw,  H,    H-hw ); // right  (yellow)
+  stroke(COL_DOWN);  line( H-hw,  H,   -H+hw, H    ); // bottom (green)
+  stroke(COL_RIGHT); line(-H,    H-hw, -H,   -H+hw ); // left   (blue)
+
+  // Orientation notch — short outward tick at the green (bottom) edge centre
+  // Replaces the old center-to-tip line that visually "jutted through" the box
+  stroke('#53d769'); strokeWeight(3); ctx.lineCap = 'round';
+  line(0, H, 0, H+11);
+
   pop();
 }
 
