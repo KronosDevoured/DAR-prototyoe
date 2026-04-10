@@ -34,11 +34,16 @@ export function spawnTarget() {
 
 // ===== Slider callbacks (called via ui.js → main.js callbacks) =====
 export function applyDifficulty(d, diffTag) {
-  const tol = 14 - (d-1)*2;
-  const rad = 28 - (d-1)*2.5;
-  const win = [0, 160, 130, 100, 85, 70][d];
-  L1_TOL_DEG = tol; L1_TARGET_RADIUS = Math.round(rad); HOLD_TO_ARC_MS = win;
-  diffTag.textContent = `Tol ${tol}° • Radius ${Math.round(rad)} • Window ${win}ms`;
+  // d=1 easiest → d=5 hardest
+  // Easy end is ~3× more forgiving than the old maximum easy values
+  const tolTable = [0, 42, 34, 24, 14,  6];
+  const radTable = [0, 60, 44, 30, 22, 16];
+  const winTable = [0, 480, 360, 240, 120, 60];
+  const tol = tolTable[d];
+  const rad = radTable[d];
+  const win = winTable[d];
+  L1_TOL_DEG = tol; L1_TARGET_RADIUS = rad; HOLD_TO_ARC_MS = win;
+  diffTag.textContent = `Tol ${tol}° • Radius ${rad} • Window ${win}ms`;
   if(state.level === 1 && state.target) {
     const fit = fitTargetAtAngle(state.target.angle, TARGET_DIST, L1_TARGET_RADIUS + 8);
     state.target.x = fit.x; state.target.y = fit.y;
