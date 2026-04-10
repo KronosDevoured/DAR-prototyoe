@@ -4,7 +4,6 @@
 
 import { millis, random, degrees, noStroke, fill, circle, stroke, strokeWeight, line } from '../../helpers.js';
 import { state } from '../../state.js';
-import { ARROW_LEN } from '../../constants.js';
 import { mirrorY, fitTargetAtAngle } from '../../math.js';
 import { drawSquareColored, drawArrowWorld, arrowColorFor } from '../../render.js';
 import { updateScore } from '../../ui.js';
@@ -96,8 +95,8 @@ export function run(dt) {
 
   // Last-attempt dot
   if(_lastDotX !== null) {
-    noStroke(); fill('rgba(255,255,255,0.45)');
-    circle(_lastDotX, _lastDotY, L1_TARGET_RADIUS*2);
+    noStroke(); fill('rgba(255,255,255,0.55)');
+    circle(_lastDotX, _lastDotY, 20);
   }
 
   const joyNow = state.joyActive || state.gpActive;
@@ -117,9 +116,9 @@ export function run(dt) {
     const held = millis() - _joyStartMs;
     state.scoreTotal++;
     if(held <= HOLD_TO_ARC_MS && _lastAngle !== null) {
-      // Store dot at arrow endpoint
-      _lastDotX = state.center.x + Math.cos(_lastAngle) * ARROW_LEN;
-      _lastDotY = state.center.y + Math.sin(_lastAngle) * ARROW_LEN;
+      // Store dot at target distance along flick angle
+      _lastDotX = state.center.x + Math.cos(_lastAngle) * TARGET_DIST;
+      _lastDotY = state.center.y + Math.sin(_lastAngle) * TARGET_DIST;
       let err = _lastAngle - state.target.angle;
       while(err >  Math.PI) err -= 2*Math.PI;
       while(err < -Math.PI) err += 2*Math.PI;
