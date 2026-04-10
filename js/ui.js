@@ -9,7 +9,7 @@ export let goalVisible = false;
 export function goalTextFor(lv) {
   if(lv === 1) return { title: 'Level 1 — Quick Aim', text: 'A target spawns around the square. Flick the joystick toward it to score. Use this level to hone the accuracy of your micro-adjustments and the precision of your touches. Start with the square stationary to get a feel for it, then crank the spin up to 1.15 s/rot for the real challenge.' };
   if(lv === 2) return { title: 'Level 2 — Match the Spin', text: 'The yellow target is fixed in space. Your arrow direction is driven by the joystick relative to the spinning square — so as the square rotates, your arrow drifts off target. Counter the spin by rotating the joystick at the same rate so the arrow stays locked on the target long enough to score.' };
-  return { title: 'Level 3 — Navigate the Course', text: 'Push the joystick to set a heading relative to the spinning square. Try to reach the goal by avoiding the obstacles and score as many points as you can before you run out of lives.' };
+  return { title: 'Level 3 — Navigate the Course', text: 'You directly control the box with the analog stick — whatever direction you push, the box moves that way. Even while the box is spinning you can steer it with light taps, hold a direction to accelerate, or counter the spin by rotating the stick in the opposite direction to lock in a predictable heading. Try to reach the goal by avoiding the obstacles and score as many points as you can before you run out of lives.' };
 }
 
 export function showGoal() {
