@@ -127,6 +127,14 @@ export function setupUI(callbacks) {
     diffRange.addEventListener('input', applyDiff); applyDiff();
   }
 
+  // L2 difficulty slider
+  const l2DiffRange = document.getElementById('l2DiffRange');
+  const l2DiffTag   = document.getElementById('l2DiffTag');
+  if(l2DiffRange) {
+    const applyL2Diff = () => callbacks.onL2DiffChange(parseInt(l2DiffRange.value, 10), l2DiffTag);
+    l2DiffRange.addEventListener('input', applyL2Diff); applyL2Diff();
+  }
+
   // L1 vertical spin slider
   const l1Slider = document.getElementById('l1SpinSlider');
   const l1Label  = document.getElementById('l1SpinLabel');

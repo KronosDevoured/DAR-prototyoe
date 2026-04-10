@@ -33,6 +33,8 @@ export function setLevel(n) {
   document.getElementById('level3hud').style.display    = (n===3) ? 'flex' : 'none';
   document.getElementById('spinControls').style.display = (n===2||n===3) ? 'flex' : 'none';
   document.getElementById('l1Diff').style.display       = (n===1) ? 'flex' : 'none';
+  const l2diff = document.getElementById('l2Diff');
+  if(l2diff) l2diff.style.display = (n===2) ? 'flex' : 'none';
   const l1spin = document.getElementById('l1SpinContainer');
   const chromeShown = !document.getElementById('menuBtn').classList.contains('active');
   if(l1spin) l1spin.style.display = (n===1 && chromeShown) ? 'flex' : 'none';
@@ -108,6 +110,7 @@ function setup() {
       updateTempoTag(L2.getSpinPeriod(), L3.getSpinPeriod());
     },
     onL1DiffChange:  (d, diffTag) => L1.applyDifficulty(d, diffTag),
+    onL2DiffChange:  (d, tag)     => L2.applyDifficulty(d, tag),
     onL1SpinSlider:  (val, label) => L1.applySpinSlider(val, label),
     onFreeplayToggle: () => {
       const on = !L3.isFreeplay();
