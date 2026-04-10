@@ -40,7 +40,7 @@ const _hudCache = { speed: null, dist: null, lives: null };
 let _globalRestart = null;
 let _preserveScore = false;
 export function init({ restart }) { _globalRestart = restart; }
-function autoRestart() { _preserveScore = true; if(_globalRestart) _globalRestart(); }
+function autoRestart() { _preserveScore = true; if(_globalRestart) { _globalRestart(); } else { restart(); } }
 
 // ===== Course generation =====
 function randRange(a, b) { return a + Math.random()*(b-a); }
