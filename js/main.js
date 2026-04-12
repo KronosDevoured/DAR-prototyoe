@@ -31,7 +31,7 @@ export function setLevel(n) {
   document.getElementById('level3').classList.toggle('active', n===3);
   document.getElementById('l3Freeplay').classList.toggle('active', n===4);
   document.getElementById('level2hud').style.display    = (n===2) ? 'flex' : 'none';
-  document.getElementById('level3hud').style.display    = (n===3||n===4) ? 'flex' : 'none';
+  document.getElementById('level3hud').style.display    = (n===3) ? 'flex' : 'none';
   document.getElementById('spinControls').style.display = (n===2||n===3||n===4) ? 'flex' : 'none';
   document.getElementById('l1Diff').style.display       = (n===1) ? 'flex' : 'none';
   const l2diff = document.getElementById('l2Diff');

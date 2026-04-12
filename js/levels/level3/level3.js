@@ -87,6 +87,7 @@ function generateCourse() {
 
 // ===== HUD =====
 function updateL3Hud() {
+  if(_freeplay) return;
   const sp = state._dom.speedTag;
   if(sp) { const cur = Math.round(l3Vel ? l3Vel.mag() : 0); if(_hudCache.speed !== cur) { sp.textContent = `Speed ${cur} px/s`; _hudCache.speed = cur; } }
   const dt = state._dom.distTag;
@@ -169,7 +170,7 @@ export function run(dt) {
     l3Vel.x = 0; l3Vel.y = 0;
   }
   l3Pos.x += l3Vel.x * dtSec; l3Pos.y += l3Vel.y * dtSec;
-  l3Dist  += l3Vel.mag() * dtSec;
+  if(!_freeplay) l3Dist += l3Vel.mag() * dtSec;
   clampCourseForScreen();
 
   // Draw
