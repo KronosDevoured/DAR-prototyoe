@@ -121,6 +121,7 @@ function setup() {
       if(btn) { btn.classList.toggle('active', nowCircle); btn.textContent = nowCircle ? 'Spin: Circle' : 'Spin: Box'; }
     },
     onFreeplayToggle: () => {
+      if(state.level !== 3) setLevel(3);
       const on = !L3.isFreeplay();
       L3.setFreeplay(on);
       const fpBtn = document.getElementById('l3Freeplay');
