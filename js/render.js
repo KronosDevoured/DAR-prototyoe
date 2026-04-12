@@ -5,6 +5,71 @@ import { SQUARE_HALF, ARROW_LEN, JOY_BASE_R, JOY_KNOB_R, COL_UP, COL_RIGHT, COL_
 import { state } from './state.js';
 import { normPi } from './math.js';
 
+let _boxSprite = null;
+const _arrowSprites = new Map();
+
+function getBoxSprite() {
+  if(_boxSprite) return _boxSprite;
+  const H = SQUARE_HALF;
+  const edgeW = 4;
+  const pad = 12;
+  const size = H * 2 + pad * 2;
+  const cx = size / 2;
+  const cy = size / 2;
+  const sprite = document.createElement('canvas');
+  sprite.width = size;
+  sprite.height = size;
+  const sctx = sprite.getContext('2d');
+
+  sctx.fillStyle = '#23252e';
+  sctx.fillRect(cx - H, cy - H, H * 2, H * 2);
+
+  sctx.fillStyle = COL_UP;
+  sctx.fillRect(cx - H, cy - H, H * 2, edgeW);
+  sctx.fillStyle = COL_LEFT;
+  sctx.fillRect(cx + H - edgeW, cy - H, edgeW, H * 2);
+  sctx.fillStyle = COL_DOWN;
+  sctx.fillRect(cx - H, cy + H - edgeW, H * 2, edgeW);
+  sctx.fillStyle = COL_RIGHT;
+  sctx.fillRect(cx - H, cy - H, edgeW, H * 2);
+
+  sctx.fillStyle = '#53d769';
+  sctx.fillRect(Math.round(cx - 1.5), cy + H - 1, 3, 12);
+
+  _boxSprite = { canvas: sprite, size };
+  return _boxSprite;
+}
+
+function getArrowSprite(color) {
+  const cached = _arrowSprites.get(color);
+  if(cached) return cached;
+
+  const shaftLen = ARROW_LEN - 14;
+  const shaftW = 6;
+  const padX = 2;
+  const padY = 10;
+  const width = ARROW_LEN + padX * 2;
+  const height = padY * 2 + 16;
+  const midY = height / 2;
+  const sprite = document.createElement('canvas');
+  sprite.width = width;
+  sprite.height = height;
+  const sctx = sprite.getContext('2d');
+
+  sctx.fillStyle = color;
+  sctx.fillRect(padX, midY - shaftW / 2, shaftLen, shaftW);
+  sctx.beginPath();
+  sctx.moveTo(padX + ARROW_LEN, midY);
+  sctx.lineTo(padX + shaftLen, midY - 8);
+  sctx.lineTo(padX + shaftLen, midY + 8);
+  sctx.closePath();
+  sctx.fill();
+
+  const result = { canvas: sprite, width, height, padX, midY };
+  _arrowSprites.set(color, result);
+  return result;
+}
+
 export function drawGrid() {
   stroke('#282a30'); strokeWeight(1);
   for(let x = 0; x < width;  x += 40) line(x, 0, x, height);
@@ -12,49 +77,16 @@ export function drawGrid() {
 }
 
 export function drawSquareColored(pos, angle) {
-  const H  = SQUARE_HALF;
-  const edgeW = 4;
-
+  const sprite = getBoxSprite();
   push(); translate(pos.x, pos.y); rotate(angle);
-
-  // Subtle dark-grey fill so the box reads as solid against the grid
-  noStroke();
-  ctx.fillStyle = '#23252e';
-  ctx.beginPath(); ctx.rect(-H, -H, H*2, H*2); ctx.fill();
-
-  // Use filled edge strips instead of strokes to reduce alias shimmer while rotating.
-  ctx.fillStyle = COL_UP;
-  ctx.fillRect(-H, -H, H*2, edgeW);
-  ctx.fillStyle = COL_LEFT;
-  ctx.fillRect(H-edgeW, -H, edgeW, H*2);
-  ctx.fillStyle = COL_DOWN;
-  ctx.fillRect(-H, H-edgeW, H*2, edgeW);
-  ctx.fillStyle = COL_RIGHT;
-  ctx.fillRect(-H, -H, edgeW, H*2);
-
-  // Orientation notch — short outward tick at the green (bottom) edge centre
-  // Replaces the old center-to-tip line that visually "jutted through" the box
-  ctx.fillStyle = '#53d769';
-  ctx.beginPath();
-  ctx.roundRect(-1.5, H-1, 3, 12, 1.5);
-  ctx.fill();
-
+  ctx.drawImage(sprite.canvas, -sprite.size / 2, -sprite.size / 2);
   pop();
 }
 
 export function drawArrowWorld(origin, angle, color) {
-  const shaftLen = ARROW_LEN - 14;
-  const shaftW   = 6;
+  const sprite = getArrowSprite(color);
   push(); translate(origin.x, origin.y); rotate(angle); noStroke();
-  // Use filled geometry instead of strokes for smoother rotational rendering.
-  ctx.fillStyle = color;
-  ctx.fillRect(0, -shaftW/2, shaftLen, shaftW);
-  ctx.beginPath();
-  ctx.moveTo(ARROW_LEN, 0);
-  ctx.lineTo(shaftLen, -8);
-  ctx.lineTo(shaftLen, 8);
-  ctx.closePath();
-  ctx.fill();
+  ctx.drawImage(sprite.canvas, -sprite.padX, -sprite.midY);
   pop();
 }
 
