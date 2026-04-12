@@ -13,8 +13,7 @@ export function drawGrid() {
 
 export function drawSquareColored(pos, angle) {
   const H  = SQUARE_HALF;
-  const sw = 4;
-  const hw = sw / 2; // half stroke width — used to inset endpoints so square caps fill corners cleanly
+  const edgeW = 4;
 
   push(); translate(pos.x, pos.y); rotate(angle);
 
@@ -23,32 +22,39 @@ export function drawSquareColored(pos, angle) {
   ctx.fillStyle = '#23252e';
   ctx.beginPath(); ctx.rect(-H, -H, H*2, H*2); ctx.fill();
 
-  // Colored edges — inset each endpoint by hw and use lineCap:'square' so the cap
-  // extends exactly to the corner with no gap and no ragged overlap between sides
-  noFill(); strokeWeight(sw); ctx.lineCap = 'square';
-  stroke(COL_UP);    line(-H+hw, -H,    H-hw, -H   ); // top    (red)
-  stroke(COL_LEFT);  line( H,   -H+hw,  H,    H-hw ); // right  (yellow)
-  stroke(COL_DOWN);  line( H-hw,  H,   -H+hw, H    ); // bottom (green)
-  stroke(COL_RIGHT); line(-H,    H-hw, -H,   -H+hw ); // left   (blue)
+  // Use filled edge strips instead of strokes to reduce alias shimmer while rotating.
+  ctx.fillStyle = COL_UP;
+  ctx.fillRect(-H, -H, H*2, edgeW);
+  ctx.fillStyle = COL_LEFT;
+  ctx.fillRect(H-edgeW, -H, edgeW, H*2);
+  ctx.fillStyle = COL_DOWN;
+  ctx.fillRect(-H, H-edgeW, H*2, edgeW);
+  ctx.fillStyle = COL_RIGHT;
+  ctx.fillRect(-H, -H, edgeW, H*2);
 
   // Orientation notch — short outward tick at the green (bottom) edge centre
   // Replaces the old center-to-tip line that visually "jutted through" the box
-  stroke('#53d769'); strokeWeight(3); ctx.lineCap = 'round';
-  line(0, H, 0, H+11);
+  ctx.fillStyle = '#53d769';
+  ctx.beginPath();
+  ctx.roundRect(-1.5, H-1, 3, 12, 1.5);
+  ctx.fill();
 
   pop();
 }
 
 export function drawArrowWorld(origin, angle, color) {
-  const ax = origin.x + Math.cos(angle)*ARROW_LEN;
-  const ay = origin.y + Math.sin(angle)*ARROW_LEN;
-  // Keep shaft endpoint exact so the triangle tip sits flush at the true end.
-  ctx.lineCap = 'butt';
-  stroke(color); strokeWeight(6); line(origin.x, origin.y, ax, ay);
-  push(); translate(ax, ay); rotate(angle); noStroke();
-  // Use direct canvas fillStyle so head color doesn't depend on helper state flushing.
+  const shaftLen = ARROW_LEN - 14;
+  const shaftW   = 6;
+  push(); translate(origin.x, origin.y); rotate(angle); noStroke();
+  // Use filled geometry instead of strokes for smoother rotational rendering.
   ctx.fillStyle = color;
-  ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(-14,-8); ctx.lineTo(-14,8); ctx.closePath(); ctx.fill();
+  ctx.fillRect(0, -shaftW/2, shaftLen, shaftW);
+  ctx.beginPath();
+  ctx.moveTo(ARROW_LEN, 0);
+  ctx.lineTo(shaftLen, -8);
+  ctx.lineTo(shaftLen, 8);
+  ctx.closePath();
+  ctx.fill();
   pop();
 }
 
