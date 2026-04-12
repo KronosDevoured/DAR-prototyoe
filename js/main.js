@@ -48,10 +48,9 @@ export function setLevel(n) {
     spinLabelPrefix.textContent = (n===2 ? 'L2 Spin' : 'L3 Spin');
   }
   updateTempoTag(L2.getSpinPeriod(), L3.getSpinPeriod());
-  // Show/reset freeplay button only on L3
+  // Reset freeplay state when switching levels
   const fpBtn = document.getElementById('l3Freeplay');
   if(fpBtn) {
-    fpBtn.style.display = (n===3) ? 'inline-flex' : 'none';
     L3.setFreeplay(false);
     fpBtn.classList.remove('active');
     fpBtn.textContent = 'Freeplay';
