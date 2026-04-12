@@ -29,9 +29,10 @@ export function setLevel(n) {
   document.getElementById('level1').classList.toggle('active', n===1);
   document.getElementById('level2').classList.toggle('active', n===2);
   document.getElementById('level3').classList.toggle('active', n===3);
+  document.getElementById('l3Freeplay').classList.toggle('active', n===4);
   document.getElementById('level2hud').style.display    = (n===2) ? 'flex' : 'none';
-  document.getElementById('level3hud').style.display    = (n===3) ? 'flex' : 'none';
-  document.getElementById('spinControls').style.display = (n===2||n===3) ? 'flex' : 'none';
+  document.getElementById('level3hud').style.display    = (n===3||n===4) ? 'flex' : 'none';
+  document.getElementById('spinControls').style.display = (n===2||n===3||n===4) ? 'flex' : 'none';
   document.getElementById('l1Diff').style.display       = (n===1) ? 'flex' : 'none';
   const l2diff = document.getElementById('l2Diff');
   if(l2diff) l2diff.style.display = (n===2) ? 'flex' : 'none';
@@ -48,11 +49,10 @@ export function setLevel(n) {
     spinLabelPrefix.textContent = (n===2 ? 'L2 Spin' : 'L3 Spin');
   }
   updateTempoTag(L2.getSpinPeriod(), L3.getSpinPeriod());
-  // Reset freeplay state when switching levels
+  // Freeplay is its own level (4), but it still runs on L3 mechanics
   const fpBtn = document.getElementById('l3Freeplay');
   if(fpBtn) {
-    L3.setFreeplay(false);
-    fpBtn.classList.remove('active');
+    L3.setFreeplay(n === 4);
     fpBtn.textContent = 'Freeplay';
   }
   // Reset L1 spin mode on every level switch
@@ -108,7 +108,7 @@ function setup() {
     restart,
     onSpinChange: (s) => {
       if(state.level === 2) L2.setSpinPeriod(s * 1000);
-      else if(state.level === 3) L3.setSpinPeriod(s * 1000);
+      else if(state.level === 3 || state.level === 4) L3.setSpinPeriod(s * 1000);
       updateTempoTag(L2.getSpinPeriod(), L3.getSpinPeriod());
     },
     onL1DiffChange:  (d, diffTag) => L1.applyDifficulty(d, diffTag),
@@ -121,11 +121,7 @@ function setup() {
       if(btn) { btn.classList.toggle('active', nowCircle); btn.textContent = nowCircle ? 'Spin: Circle' : 'Spin: Box'; }
     },
     onFreeplayToggle: () => {
-      if(state.level !== 3) setLevel(3);
-      const on = !L3.isFreeplay();
-      L3.setFreeplay(on);
-      const fpBtn = document.getElementById('l3Freeplay');
-      if(fpBtn) { fpBtn.classList.toggle('active', on); fpBtn.textContent = on ? 'Freeplay: ON' : 'Freeplay'; }
+      setLevel(4);
     },
   });
 
