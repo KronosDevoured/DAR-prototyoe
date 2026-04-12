@@ -134,7 +134,7 @@ function setup() {
   state.lastFrameT = millis();
   (function loop() {
     const t  = millis();
-    const dt = Math.max(1, t - state.lastFrameT);
+    const dt = Math.min(50, Math.max(1, t - state.lastFrameT));
     state.lastFrameT = t;
     draw(dt);
     requestAnimationFrame(loop);

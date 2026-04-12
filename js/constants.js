@@ -8,8 +8,8 @@ export const JOY_BASE_R     = 88;
 export const JOY_KNOB_R     = 28;
 export const JOY_LONGPRESS_MS = 250;
 
-export const STICK_TAU_MS   = 38;
-export const ARROW_TAU_MS   = 55;
+export const STICK_TAU_MS   = 20;
+export const ARROW_TAU_MS   = 35;
 export const STICK_MIN_MAG  = 8;
 
 // Color names reflect the INPUT DIRECTION on the joystick arc, not the on-screen square edge.
