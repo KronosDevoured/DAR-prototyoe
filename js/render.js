@@ -42,8 +42,12 @@ export function drawSquareColored(pos, angle) {
 export function drawArrowWorld(origin, angle, color) {
   const ax = origin.x + Math.cos(angle)*ARROW_LEN;
   const ay = origin.y + Math.sin(angle)*ARROW_LEN;
+  // Keep shaft endpoint exact so the triangle tip sits flush at the true end.
+  ctx.lineCap = 'butt';
   stroke(color); strokeWeight(6); line(origin.x, origin.y, ax, ay);
-  push(); translate(ax, ay); rotate(angle); fill(color); noStroke();
+  push(); translate(ax, ay); rotate(angle); noStroke();
+  // Use direct canvas fillStyle so head color doesn't depend on helper state flushing.
+  ctx.fillStyle = color;
   ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(-14,-8); ctx.lineTo(-14,8); ctx.closePath(); ctx.fill();
   pop();
 }
