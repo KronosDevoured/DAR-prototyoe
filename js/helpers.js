@@ -2,20 +2,46 @@
 
 export let canvas, ctx, width, height;
 
+let _renderScale = 1;
+const MAX_INTERNAL_PIXELS = 2600000; // ~2.6 MP target for smoother performance on high-res displays
+const MIN_RENDER_SCALE = 0.65;
+
+function computeRenderScale(w, h) {
+  const dynamic = Math.min(1, Math.sqrt(MAX_INTERNAL_PIXELS / Math.max(1, w*h)));
+  return Math.max(MIN_RENDER_SCALE, dynamic);
+}
+
+function applyCanvasSizing(w, h) {
+  _renderScale = computeRenderScale(w, h);
+  canvas.width = Math.max(1, Math.round(w * _renderScale));
+  canvas.height = Math.max(1, Math.round(h * _renderScale));
+  canvas.style.width = `${w}px`;
+  canvas.style.height = `${h}px`;
+  width = w;
+  height = h;
+  // Keep drawing API in CSS-pixel space; scaling happens in the backing canvas only.
+  ctx.setTransform(_renderScale, 0, 0, _renderScale, 0, 0);
+}
+
 const _state = { strokeStyle: '#fff', fillStyle: '#fff', lineWidth: 1, doStroke: true, doFill: true };
 function _apply() { ctx.strokeStyle = _state.strokeStyle; ctx.fillStyle = _state.fillStyle; ctx.lineWidth = _state.lineWidth; }
 
 export function createCanvas(w, h) {
   canvas = document.createElement('canvas');
   ctx = canvas.getContext('2d');
-  canvas.width = width = w;
-  canvas.height = height = h;
   canvas.style.touchAction = 'none';
   document.body.appendChild(canvas);
+  applyCanvasSizing(w, h);
   return { elt: canvas };
 }
-export function resizeCanvas(w, h) { canvas.width = width = w; canvas.height = height = h; }
-export function background(c) { ctx.save(); ctx.setTransform(1,0,0,1,0,0); ctx.fillStyle = c; ctx.fillRect(0,0,width,height); ctx.restore(); }
+export function resizeCanvas(w, h) { applyCanvasSizing(w, h); }
+export function background(c) {
+  ctx.save();
+  ctx.setTransform(_renderScale, 0, 0, _renderScale, 0, 0);
+  ctx.fillStyle = c;
+  ctx.fillRect(0, 0, width, height);
+  ctx.restore();
+}
 
 export function stroke(c)      { _state.doStroke = true;  _state.strokeStyle = c; }
 export function noStroke()     { _state.doStroke = false; }
